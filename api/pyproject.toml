@@ -25,5 +25,6 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["live: calls the real Ollama models; skipped unless pytest --live"]
 
 # Ruff settings live in /ruff.toml so they cover api/ and scripts/ alike.

@@ -434,6 +434,14 @@ def build_docs(kpis: list[dict]) -> list[dict]:
             "memo; balance paid the following week.",
         ),
     ]
+    # Stable key per document (source type, KPI, week), so embed_docs.py can
+    # upsert on it and re-runs never create duplicates.
+    for d in docs:
+        d["doc_key"] = ":".join(
+            [d["source_type"], d["formula_key"] or "general", d["week_start"] or "undated"]
+        )
+    keys = [(d["client_id"], d["doc_key"]) for d in docs]
+    assert len(keys) == len(set(keys)), "doc_key must be unique per client"
     return docs
 
 

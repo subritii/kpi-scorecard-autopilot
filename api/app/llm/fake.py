@@ -24,6 +24,7 @@ class FakeProvider(LLMProvider):
         super().__init__(embedding_dim)
         self.fixed = fixed or {}  # exact text -> vector, for tests that need precise control
         self.completion = completion
+        self.embedding_model = "fake/hashed-words"
         self.calls: list[dict] = []  # every complete() call, for assertions
 
     def complete(self, prompt: str, *, system: str | None = None) -> str:

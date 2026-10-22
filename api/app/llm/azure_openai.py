@@ -25,6 +25,7 @@ class AzureOpenAIProvider(LLMProvider):
         self.api_version = api_version
         self.chat_deployment = chat_deployment
         self.embedding_deployment = embedding_deployment
+        self.embedding_model = f"azure_openai/{embedding_deployment}"
         self.client = client or httpx.Client(timeout=timeout)
 
     def _post(self, deployment: str, operation: str, payload: dict) -> dict:

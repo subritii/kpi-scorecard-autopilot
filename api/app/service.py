@@ -143,3 +143,12 @@ def drivers_for_kpi(
         week_data(conn, client_id, week_start - timedelta(weeks=1)),
         limit,
     )
+
+
+def kpi_exists(conn: psycopg.Connection, client_id: str, kpi_id: int) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM kpi_definitions WHERE id = %s AND client_id = %s", (kpi_id, client_id)
+        ).fetchone()
+        is not None
+    )

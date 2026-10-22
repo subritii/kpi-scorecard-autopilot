@@ -8,16 +8,33 @@ client can turn them into floats.
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import date
+from functools import lru_cache
 from typing import Annotated
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app import service
+from app import retrieval, service
 from app.db import client_connection
+from app.llm import get_provider
+from app.llm.base import LLMConfigError, LLMError, LLMProvider
 
 app = FastAPI(title="KPI Scorecard Autopilot API", version="0.1.0")
+
+
+@app.exception_handler(LLMError)
+def llm_error(request: Request, exc: LLMError) -> JSONResponse:
+    # Misconfiguration is our fault (500); a failing model server is upstream (502).
+    # Messages never contain secrets (see app/llm/base.py).
+    status = 500 if isinstance(exc, LLMConfigError) else 502
+    return JSONResponse(status_code=status, content={"detail": str(exc)})
+
+
+@app.exception_handler(retrieval.RetrievalConfigError)
+def retrieval_config_error(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 def get_connect():
@@ -29,6 +46,20 @@ def get_connect():
 Connect = Annotated[
     Callable[[str], AbstractContextManager[psycopg.Connection]], Depends(get_connect)
 ]
+
+
+@lru_cache(maxsize=1)
+def _provider() -> LLMProvider:
+    # Built once from .env and reused (it holds an HTTP connection pool).
+    return get_provider()
+
+
+def get_llm() -> LLMProvider:
+    """Dependency: the configured LLM provider. Tests swap in the fake one."""
+    return _provider()
+
+
+LLM = Annotated[LLMProvider, Depends(get_llm)]
 
 
 # --- request models ------------------------------------------------------------
@@ -52,6 +83,19 @@ class WeekRequest(BaseModel):
 class DriversRequest(WeekRequest):
     kpi_id: int
     limit: int | None = Field(default=None, ge=1)
+
+
+class RetrieveRequest(WeekRequest):
+    kpi_id: int
+    query: str = Field(min_length=1)  # e.g. the WF2 observation of what moved
+    limit: int = Field(default=3, ge=1, le=10)
+
+    @field_validator("query")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("query must not be blank")
+        return v
 
 
 # --- response models: every number is a string ---------------------------------
@@ -92,6 +136,23 @@ class DenominatorOut(BaseModel):
     effect_on_kpi: str | None
     top_contributor_effect_on_kpi: str | None
     exceeds_top_contributor: bool | None
+
+
+class MatchOut(BaseModel):
+    doc_id: int
+    doc_key: str
+    week_start: date
+    similarity: str  # cosine similarity, 4 decimal places
+    text: str
+
+
+class RetrieveResponse(BaseModel):
+    client_id: str
+    kpi_id: int
+    week_start: date
+    threshold: str
+    best_similarity: str | None  # reported even when below the threshold, for tuning
+    results: list[MatchOut]
 
 
 class DriversResponse(BaseModel):
@@ -141,4 +202,48 @@ def drivers(req: DriversRequest, connect: Connect):
         "kpi_id": req.kpi_id,
         "week_start": req.week_start,
         **service.drivers_output(result),
+    }
+
+
+@app.post("/retrieve", response_model=RetrieveResponse)
+def retrieve(req: RetrieveRequest, connect: Connect, llm: LLM):
+    """Last year's explanations of a similar move in this KPI, if any are close enough.
+
+    Only past explanations of this client's KPI, dated before week_start, are
+    considered. Nothing comes back unless the match clears the threshold.
+    """
+    threshold = retrieval.min_similarity()
+    with connect(req.client_id) as conn:
+        if not service.kpi_exists(conn, req.client_id, req.kpi_id):
+            raise HTTPException(status_code=404, detail="KPI not found for this client")
+    # Embed outside any database transaction: model calls can be slow.
+    [vector] = llm.embed([req.query], purpose="query")
+    with connect(req.client_id) as conn:
+        found = retrieval.search(
+            conn,
+            req.client_id,
+            vector,
+            before=req.week_start,
+            kpi_id=req.kpi_id,
+            limit=req.limit,
+            min_similarity=threshold,
+        )
+    return {
+        "client_id": req.client_id,
+        "kpi_id": req.kpi_id,
+        "week_start": req.week_start,
+        "threshold": str(threshold),
+        "best_similarity": None
+        if found.best_similarity is None
+        else f"{found.best_similarity:.4f}",
+        "results": [
+            {
+                "doc_id": m.doc_id,
+                "doc_key": m.doc_key,
+                "week_start": m.week_start,
+                "similarity": f"{m.similarity:.4f}",
+                "text": m.text,
+            }
+            for m in found.results
+        ],
     }

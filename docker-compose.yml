@@ -26,6 +26,13 @@ services:
       # Inside the compose network the database host is the service name, not localhost.
       # Connects as app_user, never the admin user, so row-level security applies.
       DATABASE_URL: postgresql://app_user:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Ollama runs natively on the host, not in Docker; .env's localhost URL
+      # would point at the container itself.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    # Makes host.docker.internal resolve on Linux too (Docker Desktop on Mac
+    # provides it already).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:

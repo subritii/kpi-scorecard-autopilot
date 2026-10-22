@@ -25,6 +25,7 @@ class OllamaProvider(LLMProvider):
         self.base_url = base_url.rstrip("/")
         self.chat_model = chat_model
         self.embed_model = embed_model
+        self.embedding_model = f"ollama/{embed_model}"
         # Local models can be slow on first load, hence the generous timeout.
         self.client = client or httpx.Client(timeout=timeout)
 

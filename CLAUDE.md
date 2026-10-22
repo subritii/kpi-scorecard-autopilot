@@ -126,7 +126,7 @@ KPIs: weekly_revenue ≥ $230K, gross_margin_pct ≥ 28, cash_on_hand ≥ $600K,
 
 - `POST /compute` `{client_id, week_start}` → KPI values + status, writes `kpi_values`
 - `POST /drivers` `{client_id, kpi_id, week_start}` → ranked contributors with amounts
-- `POST /retrieve` `{client_id, kpi_id, query}` → top past explanations (client-scoped)
+- `POST /retrieve` `{client_id, kpi_id, week_start, query}` → past explanations of that KPI dated before `week_start`, above `RETRIEVAL_MIN_SIMILARITY` (client-scoped; empty if nothing is close enough)
 - `POST /check-faithfulness` `{run_id, text}` → pass/fail + list of unmatched numbers
 - `POST /eval/run` → metrics dict, also writes `eval/results.md`
 - `GET /health`
@@ -160,12 +160,13 @@ Workflows are built in the n8n editor and exported to `n8n/workflows/`. Do not r
 cp .env.example .env               # then fill in values
 docker compose up -d               # n8n :5678, api :8000, postgres :5432
 cd api && pip install -e ".[dev]"
-pytest                             # run all tests
+pytest                             # run all tests (live tests skipped)
+pytest --live -s                   # also run tests against real Ollama, printing scores
 ruff check . && ruff format .
 python scripts/generate_synthetic.py
 python scripts/migrate.py          # as admin; applies db/migrations, sets app_user password
 python scripts/seed_db.py          # as admin; upserts data/seed/ in one transaction
-python scripts/embed_docs.py
+python scripts/embed_docs.py       # as admin; re-runnable (upserts on doc_key)
 python scripts/run_eval.py
 ```
 

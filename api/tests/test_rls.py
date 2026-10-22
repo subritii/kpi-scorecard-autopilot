@@ -178,8 +178,8 @@ def seeded(conn):
             (run,),
         )
         conn.execute(
-            "INSERT INTO doc_chunks (client_id, kpi_id, source_type, text)"
-            " VALUES (%s, %s, 'note', 'x')",
+            "INSERT INTO doc_chunks (client_id, doc_key, kpi_id, source_type, text)"
+            " VALUES (%s, 'note:rls_test:undated', %s, 'note', 'x')",
             (cid, kpi["id"]),
         )
     return conn

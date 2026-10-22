@@ -30,6 +30,7 @@ class EmbeddingDimensionError(LLMError):
 
 class LLMProvider(ABC):
     name: str
+    embedding_model: str  # stored with each vector in doc_chunks.embedding_model
 
     def __init__(self, embedding_dim: int):
         self.embedding_dim = embedding_dim
