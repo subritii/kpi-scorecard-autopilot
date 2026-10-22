@@ -2,7 +2,7 @@
 
 Runs as the admin user (ADMIN_DATABASE_URL). Applied files are recorded in
 schema_migrations, so re-running only applies new files. Afterwards it makes
-sure the kpi_app role can log in with APP_DB_PASSWORD.
+sure the app_user role can log in with APP_DB_PASSWORD.
 """
 
 import os
@@ -44,7 +44,7 @@ def main() -> None:
 
         # sql.Literal quotes the password safely; it is never printed.
         conn.execute(
-            sql.SQL("ALTER ROLE kpi_app WITH LOGIN PASSWORD {}").format(
+            sql.SQL("ALTER ROLE app_user WITH LOGIN PASSWORD {}").format(
                 sql.Literal(os.environ["APP_DB_PASSWORD"])
             )
         )

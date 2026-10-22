@@ -24,8 +24,8 @@ services:
     env_file: .env
     environment:
       # Inside the compose network the database host is the service name, not localhost.
-      # Connects as kpi_app, never the admin user, so row-level security applies.
-      DATABASE_URL: postgresql://kpi_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Connects as app_user, never the admin user, so row-level security applies.
+      DATABASE_URL: postgresql://app_user:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
     ports:
       - "8000:8000"
     depends_on:

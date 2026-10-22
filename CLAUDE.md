@@ -80,7 +80,7 @@ This is a portfolio project. Synthetic data and sandboxes only.
 - `weekly_runs.state`: `collecting → asking → assembling → awaiting_approval → sent | rejected | needs_attention`
 - `doc_chunks.source_type`: `definition | note | past_explanation`
 - Row-level security: policies use `current_setting('app.current_client_id')`. `db.py` sets it on every connection checkout.
-- Two DB roles: `kpi_admin` (superuser, migrations only, bypasses RLS) and `kpi_app` (API, scripts, tests; RLS enforced). Never point the API at the admin URL.
+- Two DB roles: `kpi_admin` (superuser, migrations only, bypasses RLS) and `app_user` (API, scripts, tests; RLS enforced, FORCE RLS on all tables). Never point the API at the admin URL.
 - `owner_responses` and `approvals` have no `client_id`; their RLS policy inherits isolation from `weekly_runs`.
 - A trigger blocks `weekly_runs.state = 'sent'` unless an approved `approvals` row exists (rule 4).
 - Embedding dimension comes from `EMBEDDING_DIM` in `.env`. Do not hardcode it.
@@ -158,8 +158,8 @@ cd api && pip install -e ".[dev]"
 pytest                             # run all tests
 ruff check . && ruff format .
 python scripts/generate_synthetic.py
-python scripts/migrate.py          # as admin; applies db/migrations, sets kpi_app password
-python scripts/seed_db.py          # as kpi_app, one client per connection (RLS enforced)
+python scripts/migrate.py          # as admin; applies db/migrations, sets app_user password
+python scripts/seed_db.py          # as app_user, one client per connection (RLS enforced)
 python scripts/embed_docs.py
 python scripts/run_eval.py
 ```

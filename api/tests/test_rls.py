@@ -1,4 +1,4 @@
-"""Row-level security integration tests against a real Postgres.
+"""Row-level security integration tests against a real Postgres, as app_user.
 
 Skipped when no database is reachable. Each test runs in a transaction that
 is rolled back, so nothing is left behind. Test clients use ids that can't
@@ -9,16 +9,29 @@ import os
 
 import psycopg
 import pytest
+from psycopg import sql
 from psycopg.rows import dict_row
 
 from app.db import client_connection
 
 A, B = "rls_test_a", "rls_test_b"
+RLS_TABLES = [
+    "clients",
+    "kpi_definitions",
+    "source_facts",
+    "kpi_values",
+    "weekly_runs",
+    "owner_responses",
+    "approvals",
+    "doc_chunks",
+]
 
 
-def _connect():
+def _connect(**kwargs):
     try:
-        return psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row, connect_timeout=2)
+        return psycopg.connect(
+            os.environ["DATABASE_URL"], row_factory=dict_row, connect_timeout=2, **kwargs
+        )
     except (KeyError, psycopg.OperationalError):
         pytest.skip("database not available")
 
@@ -32,7 +45,8 @@ def conn():
 
 
 def as_client(conn, client_id):
-    conn.execute("SELECT set_config('app.current_client_id', %s, true)", (client_id,))
+    # Same mechanism as app.db: SET LOCAL, scoped to the current transaction.
+    conn.execute(sql.SQL("SET LOCAL app.current_client_id = {}").format(sql.Literal(client_id)))
 
 
 def add_client(conn, client_id):
@@ -51,17 +65,68 @@ def add_run(conn, client_id) -> int:
     ).fetchone()["id"]
 
 
-def test_app_role_cannot_bypass_rls(conn):
+def count(conn, table) -> int:
+    return conn.execute(
+        sql.SQL("SELECT count(*) AS n FROM {}").format(sql.Identifier(table))
+    ).fetchone()["n"]
+
+
+def test_connected_as_app_user_without_bypass(conn):
     role = conn.execute(
-        "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+        "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
     ).fetchone()
-    assert role == {"rolsuper": False, "rolbypassrls": False}
+    assert role == {"rolname": "app_user", "rolsuper": False, "rolbypassrls": False}
 
 
-def test_unscoped_connection_sees_nothing(conn):
+def test_app_user_owns_no_tables(conn):
+    owned = conn.execute(
+        "SELECT count(*) AS n FROM pg_tables"
+        " WHERE schemaname = 'public' AND tableowner = 'app_user'"
+    ).fetchone()["n"]
+    assert owned == 0
+
+
+def test_rls_enabled_and_forced_on_all_tables(conn):
+    rows = conn.execute(
+        "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class "
+        "WHERE relname = ANY(%s) AND relkind = 'r'",
+        (RLS_TABLES,),
+    ).fetchall()
+    assert {r["relname"] for r in rows} == set(RLS_TABLES)
+    assert all(r["relrowsecurity"] and r["relforcerowsecurity"] for r in rows)
+
+
+def test_missing_setting_returns_zero_rows_not_error(conn):
+    """A brand-new session that never set the client sees nothing in any table."""
+    setting = conn.execute("SELECT current_setting('app.current_client_id', true) AS v").fetchone()[
+        "v"
+    ]
+    assert setting is None
+    for table in RLS_TABLES:
+        assert count(conn, table) == 0, table
+
+
+def test_empty_setting_returns_zero_rows(conn):
     add_client(conn, A)
     as_client(conn, "")
-    assert conn.execute("SELECT count(*) AS n FROM clients").fetchone()["n"] == 0
+    assert count(conn, "clients") == 0
+
+
+def test_setting_does_not_leak_past_transaction():
+    c = _connect(autocommit=True)
+    try:
+        with c.transaction():
+            as_client(c, "brightline")
+            assert (
+                c.execute("SELECT current_setting('app.current_client_id') AS v").fetchone()["v"]
+                == "brightline"
+            )
+        # Same session, new transaction: the SET LOCAL value is gone.
+        after = c.execute("SELECT current_setting('app.current_client_id', true) AS v").fetchone()
+        assert after["v"] in (None, "")
+        assert count(c, "clients") == 0
+    finally:
+        c.close()
 
 
 def test_client_sees_only_its_own_rows(conn):
@@ -91,13 +156,42 @@ def test_approvals_follow_their_runs_client(conn):
         (run_b,),
     )
     as_client(conn, A)
-    assert conn.execute("SELECT count(*) AS n FROM approvals").fetchone()["n"] == 0
+    assert count(conn, "approvals") == 0
     # A also can't attach an approval to B's run.
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         conn.execute(
             "INSERT INTO approvals (run_id, approver, decision) VALUES (%s, 'x', 'approved')",
             (run_b,),
         )
+
+
+def test_owner_responses_follow_their_runs_client(conn):
+    add_client(conn, A)
+    add_client(conn, B)
+    kpi_b = conn.execute(
+        "INSERT INTO kpi_definitions (client_id, name, definition, owner_name, owner_email,"
+        " source, formula_key, target, direction)"
+        " VALUES (%s, 'Rev', 'd', 'o', 'o@test.example', 'quickbooks', 'weekly_revenue', 1,"
+        " 'higher') RETURNING id",
+        (B,),
+    ).fetchone()["id"]
+    run_b = add_run(conn, B)
+    conn.execute(
+        "INSERT INTO owner_responses (run_id, kpi_id, why) VALUES (%s, %s, 'x')", (run_b, kpi_b)
+    )
+    as_client(conn, A)
+    assert count(conn, "owner_responses") == 0
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute(
+            "INSERT INTO owner_responses (run_id, kpi_id, why) VALUES (%s, %s, 'x')",
+            (run_b, kpi_b),
+        )
+
+
+def test_app_user_cannot_delete(conn):
+    add_client(conn, A)
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute("DELETE FROM clients WHERE id = %s", (A,))
 
 
 def test_run_cannot_be_sent_without_approval(conn):
@@ -113,12 +207,11 @@ def test_run_cannot_be_sent_without_approval(conn):
     conn.execute("UPDATE weekly_runs SET state = 'sent' WHERE id = %s", (run,))
 
 
-def test_client_connection_is_scoped():
+def test_client_connection_sets_client_for_its_transaction():
     _connect().close()  # skip if no database
     with client_connection("brightline") as c:
         setting = c.execute("SELECT current_setting('app.current_client_id') AS v").fetchone()
         assert setting["v"] == "brightline"
-        c.rollback()
     with pytest.raises(ValueError):
         with client_connection(""):
             pass
