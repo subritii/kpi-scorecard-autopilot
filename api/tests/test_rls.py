@@ -129,12 +129,77 @@ def test_setting_does_not_leak_past_transaction():
         c.close()
 
 
-def test_client_sees_only_its_own_rows(conn):
-    add_client(conn, A)
-    add_client(conn, B)
-    as_client(conn, A)
-    ids = [r["id"] for r in conn.execute("SELECT id FROM clients")]
-    assert ids == [A]
+# --- Isolation between the two seeded clients --------------------------------
+
+# For each table: the owning client of every row the session can see. The
+# run-child tables LEFT JOIN to their run, so a leaked reply/approval whose
+# run is hidden would show up as owner NULL instead of silently vanishing.
+OWNER_SQL = {
+    "clients": "SELECT id AS owner FROM clients",
+    "kpi_definitions": "SELECT client_id AS owner FROM kpi_definitions",
+    "source_facts": "SELECT client_id AS owner FROM source_facts",
+    "kpi_values": "SELECT client_id AS owner FROM kpi_values",
+    "weekly_runs": "SELECT client_id AS owner FROM weekly_runs",
+    "owner_responses": "SELECT r.client_id AS owner FROM owner_responses o"
+    " LEFT JOIN weekly_runs r ON r.id = o.run_id",
+    "approvals": "SELECT r.client_id AS owner FROM approvals a"
+    " LEFT JOIN weekly_runs r ON r.id = a.run_id",
+    "doc_chunks": "SELECT client_id AS owner FROM doc_chunks",
+}
+
+
+@pytest.fixture
+def seeded(conn):
+    """Seeded Brightline + Northgate, plus one row per client in each table the
+    seed script leaves empty, so all 8 tables hold data for both clients."""
+    for cid in ("brightline", "northgate"):
+        as_client(conn, cid)
+        kpi = conn.execute(
+            "SELECT id FROM kpi_definitions"
+            " WHERE client_id = %s AND formula_key = 'weekly_revenue'",
+            (cid,),
+        ).fetchone()
+        if kpi is None:
+            pytest.skip("seeded data not found; run scripts/seed_db.py")
+        conn.execute(
+            "INSERT INTO kpi_values (client_id, kpi_id, week_start, value, status)"
+            " VALUES (%s, %s, '2026-07-06', 1, 'green')",
+            (cid, kpi["id"]),
+        )
+        run = add_run(conn, cid)
+        conn.execute(
+            "INSERT INTO owner_responses (run_id, kpi_id, why) VALUES (%s, %s, 'x')",
+            (run, kpi["id"]),
+        )
+        conn.execute(
+            "INSERT INTO approvals (run_id, approver, decision) VALUES (%s, 'x', 'approved')",
+            (run,),
+        )
+        conn.execute(
+            "INSERT INTO doc_chunks (client_id, kpi_id, source_type, text)"
+            " VALUES (%s, %s, 'note', 'x')",
+            (cid, kpi["id"]),
+        )
+    return conn
+
+
+@pytest.mark.parametrize("me", ["brightline", "northgate"])
+def test_client_sees_zero_rows_of_the_other_client(seeded, me):
+    as_client(seeded, me)
+    for table, query in OWNER_SQL.items():
+        owners = {r["owner"] for r in seeded.execute(query)}
+        # Non-empty check keeps the test honest: zero rows of everything would also "pass".
+        assert owners == {me}, f"{table}: visible owners {owners}"
+
+
+def test_cannot_move_a_row_to_another_client(seeded):
+    """UPDATE ... SET client_id = other is blocked by the policy's WITH CHECK."""
+    as_client(seeded, "brightline")
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        seeded.execute(
+            "UPDATE source_facts SET client_id = 'northgate'"
+            " WHERE id = (SELECT min(id) FROM source_facts WHERE client_id = 'brightline')"
+        )
 
 
 def test_cannot_write_another_clients_row(conn):

@@ -25,7 +25,7 @@ Load the synthetic data (with the API venv active, from the repo root):
 ```bash
 python scripts/generate_synthetic.py   # data/seed/, fixed seed, reproducible
 python scripts/migrate.py              # schema + row-level security (runs as admin)
-python scripts/seed_db.py              # loads data as the RLS-restricted app role
+python scripts/seed_db.py              # loads data (runs as admin)
 ```
 
 Local development of the API:
