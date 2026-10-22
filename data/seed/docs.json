@@ -1,0 +1,142 @@
+[
+  {
+    "client_id": "brightline",
+    "formula_key": "weekly_revenue",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "Weekly Revenue: Total revenue recognized in the week (Mon-Sun), summed across customers. Owner: Sam Keller."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "gross_margin_pct",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "Gross Margin %: (Revenue - cost of goods sold) / revenue for the week, as a percentage rounded to 1 decimal. Owner: Lena Brooks."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "cash_on_hand",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "Cash on Hand: Ending cash balance across all bank accounts at the end of the week. Owner: Avery Chen."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "ar_over_60",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "AR Over 60 Days: Accounts receivable more than 60 days past invoice date (61-90 and 90+ aging buckets). Owner: Avery Chen."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "new_bookings",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "New Bookings: Value of new signed contracts in the week, from the sales bookings sheet. Owner: Marcus Hale."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "weekly_revenue",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "Weekly Revenue: Total revenue recognized in the week (Mon-Sun), summed across customers. Owner: Rosa Delgado."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "gross_margin_pct",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "Gross Margin %: (Revenue - cost of goods sold) / revenue for the week, as a percentage rounded to 1 decimal. Owner: Rosa Delgado."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "cash_on_hand",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "Cash on Hand: Ending cash balance across all bank accounts at the end of the week. Owner: Ben Okafor."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "ar_over_60",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "AR Over 60 Days: Accounts receivable more than 60 days past invoice date (61-90 and 90+ aging buckets). Owner: Ben Okafor."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "inventory_days",
+    "week_start": null,
+    "source_type": "definition",
+    "text": "Inventory Days: Inventory balance / average daily COGS (weekly COGS / 7). Owner: Tom Lindqvist."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": null,
+    "week_start": null,
+    "source_type": "note",
+    "text": "Brightline bills monthly on net-30 terms. Collections follow-up starts at 45 days."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "gross_margin_pct",
+    "week_start": null,
+    "source_type": "note",
+    "text": "Subcontractor fees are billed by an outside staffing partner under a rate card that is reviewed each summer."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "ar_over_60",
+    "week_start": "2025-08-04",
+    "source_type": "past_explanation",
+    "text": "What changed: AR over 60 days rose well above target. Why: Ambercrest Logistics and Mosswood Hospitality held payments while moving to a new AP system. Owner of fix: Avery Chen. Actions: weekly calls with both AP teams; both balances cleared within three weeks."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "gross_margin_pct",
+    "week_start": "2025-08-25",
+    "source_type": "past_explanation",
+    "text": "What changed: gross margin dropped below target for one week. Why: the staffing partner applied its new rate card mid-contract, so subcontractor fees jumped. Owner of fix: Lena Brooks. Actions: renegotiated to honor the old rate through contract end; added rate-card review to the summer calendar."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "new_bookings",
+    "week_start": "2025-09-15",
+    "source_type": "past_explanation",
+    "text": "What changed: new bookings fell for two weeks in September. Why: late-summer slowdown; prospects pushed signing decisions until their new budget cycle. Owner of fix: Marcus Hale. Actions: front-loaded proposals in August; pipeline recovered by October."
+  },
+  {
+    "client_id": "brightline",
+    "formula_key": "cash_on_hand",
+    "week_start": "2025-06-30",
+    "source_type": "past_explanation",
+    "text": "What changed: cash dipped but stayed above target. Why: annual insurance premium was prepaid. Owner of fix: Avery Chen. Actions: none needed; planned outflow."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": null,
+    "week_start": null,
+    "source_type": "note",
+    "text": "Northgate purchasing reviews open purchase orders every Thursday."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "gross_margin_pct",
+    "week_start": null,
+    "source_type": "note",
+    "text": "Northgate gross margin is sensitive to freight-in costs during peak season."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "inventory_days",
+    "week_start": "2025-09-22",
+    "source_type": "past_explanation",
+    "text": "What changed: inventory days spiked above target for one week. Why: purchasing placed an early bulk order of plumbing fixtures ahead of an announced supplier price increase. Owner of fix: Tom Lindqvist. Actions: sold through the excess over the next month; added a second approval for large POs."
+  },
+  {
+    "client_id": "northgate",
+    "formula_key": "ar_over_60",
+    "week_start": "2025-08-11",
+    "source_type": "past_explanation",
+    "text": "What changed: AR over 60 days rose. Why: Valemont Hardware disputed a damaged shipment and held payment until a credit memo was issued. Owner of fix: Ben Okafor. Actions: issued the credit memo; balance paid the following week."
+  }
+]

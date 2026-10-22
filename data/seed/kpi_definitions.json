@@ -1,0 +1,122 @@
+[
+  {
+    "client_id": "brightline",
+    "name": "Weekly Revenue",
+    "definition": "Total revenue recognized in the week (Mon-Sun), summed across customers.",
+    "owner_name": "Sam Keller",
+    "owner_email": "sam.keller@brightline.example",
+    "source": "quickbooks",
+    "formula_key": "weekly_revenue",
+    "target": 155000,
+    "direction": "higher",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "brightline",
+    "name": "Gross Margin %",
+    "definition": "(Revenue - cost of goods sold) / revenue for the week, as a percentage rounded to 1 decimal.",
+    "owner_name": "Lena Brooks",
+    "owner_email": "lena.brooks@brightline.example",
+    "source": "quickbooks",
+    "formula_key": "gross_margin_pct",
+    "target": 42,
+    "direction": "higher",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "brightline",
+    "name": "Cash on Hand",
+    "definition": "Ending cash balance across all bank accounts at the end of the week.",
+    "owner_name": "Avery Chen",
+    "owner_email": "avery.chen@brightline.example",
+    "source": "quickbooks",
+    "formula_key": "cash_on_hand",
+    "target": 400000,
+    "direction": "higher",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "brightline",
+    "name": "AR Over 60 Days",
+    "definition": "Accounts receivable more than 60 days past invoice date (61-90 and 90+ aging buckets).",
+    "owner_name": "Avery Chen",
+    "owner_email": "avery.chen@brightline.example",
+    "source": "quickbooks",
+    "formula_key": "ar_over_60",
+    "target": 90000,
+    "direction": "lower",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "brightline",
+    "name": "New Bookings",
+    "definition": "Value of new signed contracts in the week, from the sales bookings sheet.",
+    "owner_name": "Marcus Hale",
+    "owner_email": "marcus.hale@brightline.example",
+    "source": "sales_sheet",
+    "formula_key": "new_bookings",
+    "target": 170000,
+    "direction": "higher",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "northgate",
+    "name": "Weekly Revenue",
+    "definition": "Total revenue recognized in the week (Mon-Sun), summed across customers.",
+    "owner_name": "Rosa Delgado",
+    "owner_email": "rosa.delgado@northgate.example",
+    "source": "quickbooks",
+    "formula_key": "weekly_revenue",
+    "target": 230000,
+    "direction": "higher",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "northgate",
+    "name": "Gross Margin %",
+    "definition": "(Revenue - cost of goods sold) / revenue for the week, as a percentage rounded to 1 decimal.",
+    "owner_name": "Rosa Delgado",
+    "owner_email": "rosa.delgado@northgate.example",
+    "source": "quickbooks",
+    "formula_key": "gross_margin_pct",
+    "target": 28,
+    "direction": "higher",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "northgate",
+    "name": "Cash on Hand",
+    "definition": "Ending cash balance across all bank accounts at the end of the week.",
+    "owner_name": "Ben Okafor",
+    "owner_email": "ben.okafor@northgate.example",
+    "source": "quickbooks",
+    "formula_key": "cash_on_hand",
+    "target": 600000,
+    "direction": "higher",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "northgate",
+    "name": "AR Over 60 Days",
+    "definition": "Accounts receivable more than 60 days past invoice date (61-90 and 90+ aging buckets).",
+    "owner_name": "Ben Okafor",
+    "owner_email": "ben.okafor@northgate.example",
+    "source": "quickbooks",
+    "formula_key": "ar_over_60",
+    "target": 150000,
+    "direction": "lower",
+    "yellow_band_pct": 5
+  },
+  {
+    "client_id": "northgate",
+    "name": "Inventory Days",
+    "definition": "Inventory balance / average daily COGS (weekly COGS / 7).",
+    "owner_name": "Tom Lindqvist",
+    "owner_email": "tom.lindqvist@northgate.example",
+    "source": "quickbooks",
+    "formula_key": "inventory_days",
+    "target": 45,
+    "direction": "lower",
+    "yellow_band_pct": 5
+  }
+]

@@ -1,0 +1,98 @@
+{
+  "seed": 42,
+  "week_starts": [
+    "2026-07-06",
+    "2026-07-13",
+    "2026-07-20",
+    "2026-07-27",
+    "2026-08-03",
+    "2026-08-10",
+    "2026-08-17",
+    "2026-08-24",
+    "2026-08-31",
+    "2026-09-07",
+    "2026-09-14",
+    "2026-09-21"
+  ],
+  "default_status": "green",
+  "events": [
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "weeks": [
+        {
+          "week": 5,
+          "week_start": "2026-08-03",
+          "expected_status": "red"
+        },
+        {
+          "week": 6,
+          "week_start": "2026-08-10",
+          "expected_status": "red"
+        },
+        {
+          "week": 7,
+          "week_start": "2026-08-17",
+          "expected_status": "red"
+        }
+      ],
+      "top_drivers": [
+        "Ambercrest Logistics",
+        "Larkspur Clinics"
+      ],
+      "driver_dimension": "customer",
+      "description": "Two customers pay late; their balances age from 61-90 into 90+."
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "weeks": [
+        {
+          "week": 8,
+          "week_start": "2026-08-24",
+          "expected_status": "red"
+        }
+      ],
+      "top_drivers": [
+        "Subcontractor fees"
+      ],
+      "driver_dimension": "account",
+      "description": "Supplier price increase doubles subcontractor fees for one week."
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "weeks": [
+        {
+          "week": 10,
+          "week_start": "2026-09-07",
+          "expected_status": "yellow"
+        },
+        {
+          "week": 11,
+          "week_start": "2026-09-14",
+          "expected_status": "red"
+        }
+      ],
+      "top_drivers": null,
+      "driver_dimension": null,
+      "description": "Seasonal dip in new bookings."
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "weeks": [
+        {
+          "week": 6,
+          "week_start": "2026-08-10",
+          "expected_status": "red"
+        }
+      ],
+      "top_drivers": [
+        "Plumbing fixtures"
+      ],
+      "driver_dimension": "category",
+      "description": "Overstock purchase of plumbing fixtures."
+    }
+  ]
+}

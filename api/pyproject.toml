@@ -1,0 +1,29 @@
+[project]
+name = "kpi-scorecard-api"
+version = "0.1.0"
+description = "KPI math, driver analysis, faithfulness check, and eval runner for KPI Scorecard Autopilot"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "psycopg[binary]>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",  # required by FastAPI's TestClient
+    "ruff>=0.4",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Ruff settings live in /ruff.toml so they cover api/ and scripts/ alike.

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "brightline",
+    "name": "Brightline Services",
+    "controller_email": "controller@ledgerline-cfo.example",
+    "leadership_emails": [
+      "ceo@brightline.example",
+      "coo@brightline.example"
+    ],
+    "clickup_list_id": null
+  },
+  {
+    "id": "northgate",
+    "name": "Northgate Supply",
+    "controller_email": "controller@ledgerline-cfo.example",
+    "leadership_emails": [
+      "ceo@northgate.example",
+      "cfo@northgate.example"
+    ],
+    "clickup_list_id": null
+  }
+]

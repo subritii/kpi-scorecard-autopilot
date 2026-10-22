@@ -1,0 +1,54 @@
+# Local stack: Postgres (pgvector), the FastAPI service, and self-hosted n8n.
+# All configuration comes from .env (copy .env.example first).
+
+services:
+  postgres:
+    # Official pgvector image = Postgres 16 with the vector extension available.
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    env_file: .env
+    environment:
+      # Inside the compose network the database host is the service name, not localhost.
+      # Connects as kpi_app, never the admin user, so row-level security applies.
+      DATABASE_URL: postgresql://kpi_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION}
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: ${TIMEZONE}
+      TZ: ${TIMEZONE}
+      # Workflows call the API by its service name on the compose network.
+      KPI_API_URL: http://api:8000
+    ports:
+      - "5678:5678"
+    volumes:
+      # n8n keeps its own state (workflows, credentials) in SQLite here,
+      # separate from the application database.
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  n8n_data:
