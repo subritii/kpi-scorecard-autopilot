@@ -39,6 +39,7 @@ This is a portfolio project. Synthetic data and sandboxes only.
 │   ├── app/
 │   │   ├── main.py           # FastAPI app + routes
 │   │   ├── db.py             # connection, sets app.current_client_id per request
+│   │   ├── service.py        # SQL for the endpoints; Decimal -> string for JSON
 │   │   ├── kpis.py           # pure KPI formulas + status logic (no I/O)
 │   │   ├── drivers.py        # top contributors to a change
 │   │   ├── faithfulness.py   # every number in text must exist in kpi_values
@@ -183,11 +184,11 @@ python scripts/run_eval.py
 
 - [x] **Phase 0 Setup**: docker-compose, .env.example, pyproject, health endpoint, README stub
 - [x] **Phase 1 Data**: migrations + RLS, synthetic generator + ground truth, seed script
-- [ ] **Phase 2 Math**: `/compute` and `/drivers` with tests passing
+- [x] **Phase 2 Math**: `/compute` and `/drivers` with tests passing
 - [ ] **Phase 3 RAG**: LLM provider interface, embed_docs, `/retrieve` (client-scoped), isolation test
 - [ ] **Phase 4 Guardrails**: `/check-faithfulness` with tests
 - [ ] **Phase 5 Workflows**: WF1–WF6 in n8n, exported to repo
 - [ ] **Phase 6 Integrations**: one live QuickBooks sandbox report pull, ClickUp task create/comment
 - [ ] **Phase 7 Eval + ship**: `/eval/run`, `eval/results.md`, README with diagram and results
 
-Current phase: **Phase 2**
+Current phase: **Phase 3**

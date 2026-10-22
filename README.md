@@ -42,7 +42,7 @@ ruff check . && ruff format .
 
 - [x] Phase 0 Setup
 - [x] Phase 1 Data
-- [ ] Phase 2 Math
+- [x] Phase 2 Math
 - [ ] Phase 3 RAG
 - [ ] Phase 4 Guardrails
 - [ ] Phase 5 Workflows
