@@ -71,6 +71,7 @@ This is a portfolio project. Synthetic data and sandboxes only.
 | `clients` | id, name, controller_email, leadership_emails, clickup_list_id |
 | `kpi_definitions` | id, client_id, name, definition, owner_name, owner_email, source, formula_key, target, direction (`higher`/`lower`), yellow_band_pct |
 | `source_facts` | client_id, week_start, metric_key, value, detail_json |
+| `source_loads` | client_id, week_start, source, row_count, loaded_at |
 | `kpi_values` | client_id, kpi_id, week_start, value, prior_value, status, drivers_json |
 | `weekly_runs` | id, client_id, week_start, state, packet_md, created_at |
 | `owner_responses` | run_id, kpi_id, what_changed, why, owner_of_fix, actions, received_at |
@@ -83,12 +84,13 @@ This is a portfolio project. Synthetic data and sandboxes only.
 - Two DB roles: `kpi_admin` (superuser; migrations and seeding only, bypasses RLS) and `app_user` (API and tests only; RLS enforced, FORCE RLS on all tables). Never point the API at the admin URL.
 - `owner_responses` and `approvals` have no `client_id`; their RLS policy inherits isolation from `weekly_runs`.
 - A trigger blocks `weekly_runs.state = 'sent'` unless an approved `approvals` row exists (rule 4).
+- `source_loads.source`: `qbo_profit_and_loss | qbo_balance_sheet | qbo_ar_aging | sales_sheet`. A KPI whose report wasn't loaded that week is `no_data`; a loaded report with no rows for a metric means 0.
 - Embedding dimension comes from `EMBEDDING_DIM` in `.env`. Do not hardcode it.
 
 ## KPI formulas (`formula_key`)
 
 - `weekly_revenue`: sum of `revenue` facts for the week
-- `gross_margin_pct`: (revenue − cogs) / revenue × 100, rounded to 1 decimal; return None if revenue = 0
+- `gross_margin_pct`: (revenue − cogs) / revenue × 100; return None if revenue = 0. Kept unrounded for status; shown to 1 decimal
 - `cash_on_hand`: ending cash balance for the week
 - `ar_over_60`: AR aging buckets 61–90 + 90+
 - `new_bookings`: sum of bookings from the sales sheet

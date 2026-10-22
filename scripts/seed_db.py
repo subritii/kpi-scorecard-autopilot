@@ -24,12 +24,12 @@ def load_json(name: str):
     return json.loads((SEED_DIR / name).read_text())
 
 
-def load_facts() -> list[dict]:
-    with open(SEED_DIR / "source_facts.csv", newline="") as f:
+def load_csv(name: str) -> list[dict]:
+    with open(SEED_DIR / name, newline="") as f:
         return list(csv.DictReader(f))
 
 
-def seed_client(conn: psycopg.Connection, client: dict, kpis: list[dict], facts: list[dict]):
+def seed_client(conn: psycopg.Connection, client: dict, kpis, facts, loads):
     # The admin role bypasses RLS, so the client_id filters below are what keep
     # each client's rows attached to the right client.
     cid = client["id"]
@@ -86,17 +86,33 @@ def seed_client(conn: psycopg.Connection, client: dict, kpis: list[dict], facts:
         """,
         client_facts,
     )
-    print(f"{cid}: {len(client_kpis)} KPIs, {len(client_facts)} facts")
+    # One row per report pulled that week, so KPI math can tell an empty report
+    # (metric = 0) from one that never arrived (no_data).
+    client_loads = [
+        (cid, r["week_start"], r["source"], int(r["row_count"]))
+        for r in loads
+        if r["client_id"] == cid
+    ]
+    conn.cursor().executemany(
+        """
+        INSERT INTO source_loads (client_id, week_start, source, row_count)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (client_id, week_start, source) DO UPDATE SET row_count = EXCLUDED.row_count
+        """,
+        client_loads,
+    )
+    print(f"{cid}: {len(client_kpis)} KPIs, {len(client_facts)} facts, {len(client_loads)} loads")
 
 
 def main() -> None:
     load_env()
     kpis = load_json("kpi_definitions.json")
-    facts = load_facts()
+    facts = load_csv("source_facts.csv")
+    loads = load_csv("source_loads.csv")
     # Leaving the `with` block commits once; any error rolls back the whole load.
     with psycopg.connect(os.environ["ADMIN_DATABASE_URL"]) as conn:
         for client in load_json("clients.json"):
-            seed_client(conn, client, kpis, facts)
+            seed_client(conn, client, kpis, facts, loads)
 
 
 if __name__ == "__main__":

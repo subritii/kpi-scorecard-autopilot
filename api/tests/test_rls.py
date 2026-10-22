@@ -24,6 +24,7 @@ RLS_TABLES = [
     "owner_responses",
     "approvals",
     "doc_chunks",
+    "source_loads",
 ]
 
 
@@ -145,13 +146,14 @@ OWNER_SQL = {
     "approvals": "SELECT r.client_id AS owner FROM approvals a"
     " LEFT JOIN weekly_runs r ON r.id = a.run_id",
     "doc_chunks": "SELECT client_id AS owner FROM doc_chunks",
+    "source_loads": "SELECT client_id AS owner FROM source_loads",
 }
 
 
 @pytest.fixture
 def seeded(conn):
     """Seeded Brightline + Northgate, plus one row per client in each table the
-    seed script leaves empty, so all 8 tables hold data for both clients."""
+    seed script leaves empty, so every RLS table holds data for both clients."""
     for cid in ("brightline", "northgate"):
         as_client(conn, cid)
         kpi = conn.execute(

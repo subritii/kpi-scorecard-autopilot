@@ -4,6 +4,7 @@ Writes to data/seed/:
   clients.json          client records
   kpi_definitions.json  KPIs, owners, targets
   source_facts.csv      raw weekly numbers, one row per metric per dimension
+  source_loads.csv      which source reports were loaded per client-week (+ row count)
   docs.json             KPI definitions, notes, and last year's explanations (for RAG)
   ground_truth.json     expected status for all 120 client-week-KPIs, plus the
                         planted events and their expected top drivers (for the eval)
@@ -21,6 +22,7 @@ is solved from the week's other numbers so the KPI lands on a chosen level.
 import csv
 import json
 import random
+from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -125,6 +127,24 @@ NORTHGATE_INVENTORY = {
 # week's COGS. Week 9 is back to normal.
 OVERSTOCK_CATEGORY = "Plumbing fixtures"
 OVERSTOCK_DAYS = {6: 55.0, 7: 50.0, 8: 46.5}
+
+# ------------------------------------------------------------- Source reports
+# Which report each metric comes from (names match source_loads.source).
+METRIC_SOURCE = {
+    "revenue": "qbo_profit_and_loss",
+    "cogs": "qbo_profit_and_loss",
+    "cash_ending": "qbo_balance_sheet",
+    "inventory_balance": "qbo_balance_sheet",
+    "ar_61_90": "qbo_ar_aging",
+    "ar_90_plus": "qbo_ar_aging",
+    "bookings": "sales_sheet",
+}
+# Reports pulled for each client every week. Every report is loaded every
+# week in this dataset; a missing report would make its KPIs no_data.
+CLIENT_SOURCES = {
+    "brightline": ["qbo_profit_and_loss", "qbo_balance_sheet", "qbo_ar_aging", "sales_sheet"],
+    "northgate": ["qbo_profit_and_loss", "qbo_balance_sheet", "qbo_ar_aging"],
+}
 
 
 def week_starts() -> list[date]:
@@ -495,6 +515,24 @@ def build_ground_truth(weeks: list[date], kpis: list[dict]) -> dict:
     }
 
 
+def build_source_loads(weeks: list[date], facts: list[dict]) -> list[dict]:
+    """One row per client x week x report, with how many fact rows it produced."""
+    counts = Counter(
+        (f["client_id"], f["week_start"], METRIC_SOURCE[f["metric_key"]]) for f in facts
+    )
+    return [
+        {
+            "client_id": c,
+            "week_start": ws.isoformat(),
+            "source": s,
+            "row_count": counts[(c, ws.isoformat(), s)],
+        }
+        for c, sources in CLIENT_SOURCES.items()
+        for ws in weeks
+        for s in sources
+    ]
+
+
 def generate(seed: int = SEED) -> dict:
     """Build every dataset in memory. Pure: same seed -> same output."""
     rng = random.Random(seed)
@@ -508,6 +546,7 @@ def generate(seed: int = SEED) -> dict:
         "clients": build_clients(),
         "kpi_definitions": kpis,
         "source_facts": facts,
+        "source_loads": build_source_loads(weeks, facts),
         "docs": build_docs(kpis),
         "ground_truth": build_ground_truth(weeks, kpis),
     }
@@ -530,6 +569,11 @@ def write(data: dict, out_dir: Path = OUT_DIR) -> None:
                     json.dumps(row["detail"], sort_keys=True),
                 ]
             )
+    with open(out_dir / "source_loads.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["client_id", "week_start", "source", "row_count"])
+        for row in data["source_loads"]:
+            writer.writerow([row["client_id"], row["week_start"], row["source"], row["row_count"]])
 
 
 def main() -> None:

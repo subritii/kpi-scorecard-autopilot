@@ -163,3 +163,17 @@ def test_every_planted_pattern_has_last_years_explanation(data):
     }
     for event in data["ground_truth"]["events"]:
         assert (event["client_id"], event["formula_key"]) in past
+
+
+def test_source_loads_cover_every_fact(data):
+    """Every fact's report is recorded as loaded that week, with a matching row count."""
+    loads = {
+        (r["client_id"], r["week_start"], r["source"]): r["row_count"] for r in data["source_loads"]
+    }
+    counts = Counter(
+        (f["client_id"], f["week_start"], gen.METRIC_SOURCE[f["metric_key"]])
+        for f in data["source_facts"]
+    )
+    assert counts == {k: n for k, n in loads.items() if n}
+    # 12 weeks x (4 Brightline reports + 3 Northgate reports)
+    assert len(loads) == 12 * 7
