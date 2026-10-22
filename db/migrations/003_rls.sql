@@ -36,26 +36,43 @@ ALTER TABLE owner_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approvals       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE doc_chunks      ENABLE ROW LEVEL SECURITY;
 
--- USING filters what you can read/update; WITH CHECK blocks writing rows
--- for any other client.
+-- In every policy, USING filters which rows can be read, updated or deleted;
+-- WITH CHECK rejects inserts/updates that would write a row for another client.
+
+-- clients: a session sees only its own client record (the key here is id, not client_id).
 CREATE POLICY client_isolation ON clients
     USING (id = current_client_id()) WITH CHECK (id = current_client_id());
+
+-- kpi_definitions: a client's KPIs, targets and owner contacts stay private to that client.
 CREATE POLICY client_isolation ON kpi_definitions
     USING (client_id = current_client_id()) WITH CHECK (client_id = current_client_id());
+
+-- source_facts: raw financials (revenue by customer, COGS, cash, AR) are per-client only.
 CREATE POLICY client_isolation ON source_facts
     USING (client_id = current_client_id()) WITH CHECK (client_id = current_client_id());
+
+-- kpi_values: computed KPIs and drivers can only be read or written for the current client.
 CREATE POLICY client_isolation ON kpi_values
     USING (client_id = current_client_id()) WITH CHECK (client_id = current_client_id());
+
+-- weekly_runs: each client's runs and packets are isolated; the two run-child
+-- policies below build on this one.
 CREATE POLICY client_isolation ON weekly_runs
     USING (client_id = current_client_id()) WITH CHECK (client_id = current_client_id());
+
+-- doc_chunks: vector search only ever ranks the current client's documents,
+-- so retrieval can't surface another client's past explanations.
 CREATE POLICY client_isolation ON doc_chunks
     USING (client_id = current_client_id()) WITH CHECK (client_id = current_client_id());
 
--- These tables have no client_id; a row is visible only if its run is.
--- The subquery on weekly_runs is itself filtered by weekly_runs' policy.
+-- owner_responses: no client_id column; a reply is visible (or insertable) only
+-- if its run is. The subquery is itself filtered by the weekly_runs policy.
 CREATE POLICY client_isolation ON owner_responses
     USING (EXISTS (SELECT 1 FROM weekly_runs r WHERE r.id = run_id))
     WITH CHECK (EXISTS (SELECT 1 FROM weekly_runs r WHERE r.id = run_id));
+
+-- approvals: same rule as owner_responses, so a Controller decision can't be
+-- read or attached to another client's run.
 CREATE POLICY client_isolation ON approvals
     USING (EXISTS (SELECT 1 FROM weekly_runs r WHERE r.id = run_id))
     WITH CHECK (EXISTS (SELECT 1 FROM weekly_runs r WHERE r.id = run_id));
