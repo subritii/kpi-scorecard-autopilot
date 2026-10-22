@@ -80,7 +80,7 @@ This is a portfolio project. Synthetic data and sandboxes only.
 - `weekly_runs.state`: `collecting → asking → assembling → awaiting_approval → sent | rejected | needs_attention`
 - `doc_chunks.source_type`: `definition | note | past_explanation`
 - Row-level security: policies use `current_setting('app.current_client_id')`. `db.py` sets it on every connection checkout.
-- Two DB roles: `kpi_admin` (superuser, migrations only, bypasses RLS) and `app_user` (API, scripts, tests; RLS enforced, FORCE RLS on all tables). Never point the API at the admin URL.
+- Two DB roles: `kpi_admin` (superuser; migrations and seeding only, bypasses RLS) and `app_user` (API and tests only; RLS enforced, FORCE RLS on all tables). Never point the API at the admin URL.
 - `owner_responses` and `approvals` have no `client_id`; their RLS policy inherits isolation from `weekly_runs`.
 - A trigger blocks `weekly_runs.state = 'sent'` unless an approved `approvals` row exists (rule 4).
 - Embedding dimension comes from `EMBEDDING_DIM` in `.env`. Do not hardcode it.
@@ -110,11 +110,13 @@ KPIs: weekly_revenue ≥ $230K, gross_margin_pct ≥ 28, cash_on_hand ≥ $600K,
 12 weeks each, weeks start Monday 2026-07-06. Use a fixed random seed so data is reproducible.
 
 **Planted events (ground truth for evals; store in `data/seed/ground_truth.json`)**
-- Brightline weeks 5–7: two customers pay late → ar_over_60 red; top drivers are those two customers
-- Brightline week 8: supplier price increase → gross_margin_pct red; top driver is one COGS account
-- Brightline weeks 10–11: seasonal dip → new_bookings yellow then red
-- Northgate week 6: overstock purchase → inventory_days red
-- All other weeks: normal noise, should stay green
+- Brightline weeks 5–7: two customers pay late → ar_over_60 red; week 8 yellow as one pays in full and the other partly; week 9 green. Top drivers are those two customers
+- Brightline week 8: supplier price increase → gross_margin_pct red; top driver is one COGS account (Subcontractor fees)
+- Brightline weeks 10–11: seasonal dip → new_bookings yellow then red; ~75% of the dip is in Implementation, the expected top driver
+- Northgate week 6: overstock purchase → inventory_days red (~55); week 7 still red (~50), week 8 yellow (~46.5), week 9 green. Top driver is Plumbing fixtures
+- All other weeks: normal noise, should stay green (110 green, 7 red, 3 yellow in total)
+- `ground_truth.json` lists `expected_statuses` for all 120 client × week × KPI values, plus `events` with expected top drivers
+- False alarm = a computed status other than green where `expected_status` is green
 - Include a few `past_explanation` docs from "last year" for the same patterns so retrieval has history
 
 ## API endpoints
@@ -159,7 +161,7 @@ pytest                             # run all tests
 ruff check . && ruff format .
 python scripts/generate_synthetic.py
 python scripts/migrate.py          # as admin; applies db/migrations, sets app_user password
-python scripts/seed_db.py          # as app_user, one client per connection (RLS enforced)
+python scripts/seed_db.py          # as admin; upserts data/seed/ in one transaction
 python scripts/embed_docs.py
 python scripts/run_eval.py
 ```

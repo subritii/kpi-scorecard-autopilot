@@ -88,7 +88,7 @@
     "formula_key": "ar_over_60",
     "week_start": "2025-08-04",
     "source_type": "past_explanation",
-    "text": "What changed: AR over 60 days rose well above target. Why: Ambercrest Logistics and Mosswood Hospitality held payments while moving to a new AP system. Owner of fix: Avery Chen. Actions: weekly calls with both AP teams; both balances cleared within three weeks."
+    "text": "What changed: AR over 60 days rose well above target for three weeks, then eased back as the balances were paid down. Why: Ambercrest Logistics and Mosswood Hospitality held payments while moving to a new AP system. Owner of fix: Avery Chen. Actions: weekly calls with both AP teams; one paid in full, the other in two installments."
   },
   {
     "client_id": "brightline",
@@ -102,7 +102,7 @@
     "formula_key": "new_bookings",
     "week_start": "2025-09-15",
     "source_type": "past_explanation",
-    "text": "What changed: new bookings fell for two weeks in September. Why: late-summer slowdown; prospects pushed signing decisions until their new budget cycle. Owner of fix: Marcus Hale. Actions: front-loaded proposals in August; pipeline recovered by October."
+    "text": "What changed: new bookings fell for two weeks in September. Why: late-summer slowdown, mostly in Implementation projects; prospects pushed signing decisions until their new budget cycle. Owner of fix: Marcus Hale. Actions: front-loaded Implementation proposals in August; pipeline recovered by October."
   },
   {
     "client_id": "brightline",
@@ -130,7 +130,7 @@
     "formula_key": "inventory_days",
     "week_start": "2025-09-22",
     "source_type": "past_explanation",
-    "text": "What changed: inventory days spiked above target for one week. Why: purchasing placed an early bulk order of plumbing fixtures ahead of an announced supplier price increase. Owner of fix: Tom Lindqvist. Actions: sold through the excess over the next month; added a second approval for large POs."
+    "text": "What changed: inventory days spiked above target, then came down over the next two weeks. Why: purchasing placed an early bulk order of plumbing fixtures ahead of an announced supplier price increase. Owner of fix: Tom Lindqvist. Actions: sold through the excess; added a second approval for large POs."
   },
   {
     "client_id": "northgate",

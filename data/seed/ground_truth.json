@@ -14,7 +14,849 @@
     "2026-09-14",
     "2026-09-21"
   ],
-  "default_status": "green",
+  "false_alarm_rule": "a computed status other than green where expected_status is green",
+  "expected_statuses": [
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "weekly_revenue",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "red"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "gross_margin_pct",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "cash_on_hand",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "red"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "red"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "red"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "yellow"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "ar_over_60",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "yellow"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "red"
+    },
+    {
+      "client_id": "brightline",
+      "formula_key": "new_bookings",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "weekly_revenue",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "gross_margin_pct",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "cash_on_hand",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "ar_over_60",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 1,
+      "week_start": "2026-07-06",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 2,
+      "week_start": "2026-07-13",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 3,
+      "week_start": "2026-07-20",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 4,
+      "week_start": "2026-07-27",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 5,
+      "week_start": "2026-08-03",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 6,
+      "week_start": "2026-08-10",
+      "expected_status": "red"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 7,
+      "week_start": "2026-08-17",
+      "expected_status": "red"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 8,
+      "week_start": "2026-08-24",
+      "expected_status": "yellow"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 9,
+      "week_start": "2026-08-31",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 10,
+      "week_start": "2026-09-07",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 11,
+      "week_start": "2026-09-14",
+      "expected_status": "green"
+    },
+    {
+      "client_id": "northgate",
+      "formula_key": "inventory_days",
+      "week": 12,
+      "week_start": "2026-09-21",
+      "expected_status": "green"
+    }
+  ],
   "events": [
     {
       "client_id": "brightline",
@@ -22,18 +864,19 @@
       "weeks": [
         {
           "week": 5,
-          "week_start": "2026-08-03",
-          "expected_status": "red"
+          "week_start": "2026-08-03"
         },
         {
           "week": 6,
-          "week_start": "2026-08-10",
-          "expected_status": "red"
+          "week_start": "2026-08-10"
         },
         {
           "week": 7,
-          "week_start": "2026-08-17",
-          "expected_status": "red"
+          "week_start": "2026-08-17"
+        },
+        {
+          "week": 8,
+          "week_start": "2026-08-24"
         }
       ],
       "top_drivers": [
@@ -41,7 +884,7 @@
         "Larkspur Clinics"
       ],
       "driver_dimension": "customer",
-      "description": "Two customers pay late; their balances age from 61-90 into 90+."
+      "description": "Two customers pay late; balances age from 61-90 into 90+, then one pays in full and the other partly in week 8."
     },
     {
       "client_id": "brightline",
@@ -49,8 +892,7 @@
       "weeks": [
         {
           "week": 8,
-          "week_start": "2026-08-24",
-          "expected_status": "red"
+          "week_start": "2026-08-24"
         }
       ],
       "top_drivers": [
@@ -65,18 +907,18 @@
       "weeks": [
         {
           "week": 10,
-          "week_start": "2026-09-07",
-          "expected_status": "yellow"
+          "week_start": "2026-09-07"
         },
         {
           "week": 11,
-          "week_start": "2026-09-14",
-          "expected_status": "red"
+          "week_start": "2026-09-14"
         }
       ],
-      "top_drivers": null,
-      "driver_dimension": null,
-      "description": "Seasonal dip in new bookings."
+      "top_drivers": [
+        "Implementation"
+      ],
+      "driver_dimension": "service_line",
+      "description": "Seasonal dip in new bookings, mostly in Implementation."
     },
     {
       "client_id": "northgate",
@@ -84,15 +926,22 @@
       "weeks": [
         {
           "week": 6,
-          "week_start": "2026-08-10",
-          "expected_status": "red"
+          "week_start": "2026-08-10"
+        },
+        {
+          "week": 7,
+          "week_start": "2026-08-17"
+        },
+        {
+          "week": 8,
+          "week_start": "2026-08-24"
         }
       ],
       "top_drivers": [
         "Plumbing fixtures"
       ],
       "driver_dimension": "category",
-      "description": "Overstock purchase of plumbing fixtures."
+      "description": "Overstock purchase of plumbing fixtures, sold down over two weeks."
     }
   ]
 }

@@ -5,7 +5,7 @@ app.kpis), so they double as an independent reference for Phase 2.
 """
 
 import importlib.util
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 
 import pytest
@@ -86,19 +86,27 @@ def test_shape(data):
     assert all(date.fromisoformat(w).isoweekday() == 1 for w in weeks)
 
 
+def test_ground_truth_lists_every_client_week_kpi(data):
+    entries = data["ground_truth"]["expected_statuses"]
+    keys = {(e["client_id"], e["formula_key"], e["week"]) for e in entries}
+    assert len(entries) == len(keys) == 10 * 12
+    counts = Counter(e["expected_status"] for e in entries)
+    # AR 5-7 red + 8 yellow; margin 8 red; bookings 10 yellow + 11 red;
+    # inventory 6-7 red + 8 yellow.
+    assert counts == {"green": 110, "red": 7, "yellow": 3}
+
+
 def test_every_client_week_matches_ground_truth(data):
-    """Planted weeks get their expected status; every other week is green."""
-    gt = data["ground_truth"]
+    """Hand-computed status equals expected_status for all 120 client-week-KPIs."""
     expected = {
-        (e["client_id"], e["formula_key"], w["week_start"]): w["expected_status"]
-        for e in gt["events"]
-        for w in e["weeks"]
+        (e["client_id"], e["formula_key"], e["week_start"]): e["expected_status"]
+        for e in data["ground_truth"]["expected_statuses"]
     }
     checked = 0
     for k in data["kpi_definitions"]:
         values = hand_kpis(data, k["client_id"])[k["formula_key"]]
         for week_start, value in values.items():
-            want = expected.get((k["client_id"], k["formula_key"], week_start), "green")
+            want = expected[(k["client_id"], k["formula_key"], week_start)]
             got = status(value, k["target"], k["direction"], k["yellow_band_pct"])
             assert got == want, (k["client_id"], k["formula_key"], week_start, value)
             checked += 1
@@ -106,25 +114,38 @@ def test_every_client_week_matches_ground_truth(data):
 
 
 def test_planted_top_drivers(data):
-    """Week-over-week, the planted cause is the biggest mover in its dimension."""
+    """In every event week, the planted cause is the biggest week-over-week mover.
+
+    Ranked by size of change, so it covers both the spike and the wind-down
+    (e.g. AR falling in week 8 is still driven by the two late payers).
+    """
     weeks = data["ground_truth"]["week_starts"]
     metrics = {
         "ar_over_60": {"ar_61_90", "ar_90_plus"},
         "gross_margin_pct": {"cogs"},
+        "new_bookings": {"bookings"},
         "inventory_days": {"inventory_balance"},
     }
     for event in data["ground_truth"]["events"]:
-        if not event["top_drivers"]:
-            continue
         for w in event["weeks"]:
             idx = weeks.index(w["week_start"])
             args = (data, event["client_id"], metrics[event["formula_key"]])
             now = by_dimension(*args, weeks[idx], event["driver_dimension"])
             before = by_dimension(*args, weeks[idx - 1], event["driver_dimension"])
-            change = {k: now[k] - before[k] for k in now}
+            change = {k: abs(now[k] - before[k]) for k in now}
             n = len(event["top_drivers"])
             top = sorted(change, key=change.get, reverse=True)[:n]
             assert sorted(top) == sorted(event["top_drivers"]), (event["formula_key"], w)
+
+
+def test_bookings_dip_is_mostly_implementation(data):
+    """About 75% of the shortfall vs. normal bookings comes from Implementation."""
+    normal = gen.BRIGHTLINE_BOOKINGS
+    for w in data["ground_truth"]["week_starts"][9:11]:  # weeks 10-11
+        actual = by_dimension(data, "brightline", {"bookings"}, w, "service_line")
+        drop = {line: normal[line] - actual[line] for line in normal}
+        share = drop["Implementation"] / sum(drop.values())
+        assert 0.70 <= share <= 0.80, (w, share)
 
 
 def test_contacts_use_reserved_example_domain(data):
@@ -134,7 +155,11 @@ def test_contacts_use_reserved_example_domain(data):
     assert all(e.endswith(".example") for e in emails)
 
 
-def test_docs_cover_both_clients_with_history(data):
-    past = [d for d in data["docs"] if d["source_type"] == "past_explanation"]
-    assert {d["client_id"] for d in past} == {"brightline", "northgate"}
-    assert all(d["week_start"].startswith("2025-") for d in past)
+def test_every_planted_pattern_has_last_years_explanation(data):
+    past = {
+        (d["client_id"], d["formula_key"])
+        for d in data["docs"]
+        if d["source_type"] == "past_explanation" and d["week_start"].startswith("2025-")
+    }
+    for event in data["ground_truth"]["events"]:
+        assert (event["client_id"], event["formula_key"]) in past

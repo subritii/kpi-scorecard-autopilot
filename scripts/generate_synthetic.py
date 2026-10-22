@@ -5,14 +5,17 @@ Writes to data/seed/:
   kpi_definitions.json  KPIs, owners, targets
   source_facts.csv      raw weekly numbers, one row per metric per dimension
   docs.json             KPI definitions, notes, and last year's explanations (for RAG)
-  ground_truth.json     the planted events, used by the eval
+  ground_truth.json     expected status for all 120 client-week-KPIs, plus the
+                        planted events and their expected top drivers (for the eval)
 
 A fixed seed makes every run produce identical output. All companies and
 people are invented; emails use the reserved .example domain.
 
 Noise ranges and planted amounts are sized so that normal weeks always stay
 green and planted weeks always land in the intended status, whatever the
-random draws are (tests/test_synthetic_data.py checks this).
+random draws are (tests/test_synthetic_data.py checks this). Where the yellow
+band is too narrow for that (e.g. inventory days 45-47.25), the planted amount
+is solved from the week's other numbers so the KPI lands on a chosen level.
 """
 
 import csv
@@ -77,13 +80,22 @@ LATE_PAYERS = {
     "Ambercrest Logistics": {5: (34_000, 0), 6: (18_000, 30_000), 7: (12_000, 48_000)},
     "Larkspur Clinics": {5: (27_000, 0), 6: (14_000, 25_000), 7: (9_000, 38_000)},
 }
+# Week 8 wind-down: Ambercrest has paid in full, Larkspur only partly. Larkspur's
+# remaining 90+ balance is solved so total AR over 60 lands at this level, inside
+# the yellow band (target 90K, yellow up to 94.5K). Week 9 is back to normal.
+AR_WIND_DOWN_WEEK = 8
+AR_WIND_DOWN_CUSTOMER = "Larkspur Clinics"
+AR_WIND_DOWN_TOTAL = 92_250
 # Planted: week 8, the staffing partner raises rates -> subcontractor fees double.
 PRICE_INCREASE_WEEK = 8
 PRICE_INCREASE_ACCOUNT = "Subcontractor fees"
 PRICE_INCREASE_RATE = 0.24
-# Planted: weeks 10-11, seasonal dip. Multiplier on normal bookings
-# (0.846 lands in the yellow band, 0.70 is clearly red).
-BOOKINGS_DIP = {10: 0.846, 11: 0.70}
+# Planted: weeks 10-11, seasonal dip. Total bookings for the week (yellow band
+# is 161.5K-170K, then clearly red). 75% of the shortfall from normal comes out
+# of Implementation; the other lines share the remaining 25% pro rata.
+BOOKINGS_DIP_TOTAL = {10: 165_000, 11: 136_500}
+BOOKINGS_DIP_LINE = "Implementation"
+BOOKINGS_DIP_LINE_SHARE = 0.75
 
 # ----------------------------------------------------------------- Northgate
 # ~$12-13M distributor.
@@ -107,10 +119,12 @@ NORTHGATE_INVENTORY = {
     "Fasteners & hardware": 190_000,
     "HVAC parts": 238_000,
 }
-# Planted: week 6, an overstock purchase of plumbing fixtures.
-OVERSTOCK_WEEK = 6
+# Planted: week 6, an overstock purchase of plumbing fixtures, sold down over
+# the next two weeks. Inventory days per week (target 45, yellow up to 47.25):
+# the plumbing balance is solved so total inventory hits this level given that
+# week's COGS. Week 9 is back to normal.
 OVERSTOCK_CATEGORY = "Plumbing fixtures"
-OVERSTOCK_AMOUNT = 420_000
+OVERSTOCK_DAYS = {6: 55.0, 7: 50.0, 8: 46.5}
 
 
 def week_starts() -> list[date]:
@@ -160,15 +174,35 @@ def brightline_week(rng: random.Random, week: int, ws: date) -> list[dict]:
     for account, balance in BRIGHTLINE_CASH.items():
         rows.append(fact(c, ws, "cash_ending", balance * jitter(rng, 0.04), account=account))
 
-    for customer in BRIGHTLINE_CUSTOMERS:
-        b61 = 4_500 * jitter(rng, 0.15)
-        b90 = 2_400 * jitter(rng, 0.15)
-        extra61, extra90 = LATE_PAYERS.get(customer, {}).get(week, (0, 0))
-        rows += ar_rows(c, ws, customer, b61 + extra61, b90 + extra90)
+    # AR: normal (61-90, 90+) buckets per customer, then the planted extras.
+    ar = {
+        customer: [4_500 * jitter(rng, 0.15), 2_400 * jitter(rng, 0.15)]
+        for customer in BRIGHTLINE_CUSTOMERS
+    }
+    for customer, by_week in LATE_PAYERS.items():
+        extra61, extra90 = by_week.get(week, (0, 0))
+        ar[customer][0] += extra61
+        ar[customer][1] += extra90
+    if week == AR_WIND_DOWN_WEEK:
+        normal_total = sum(b61 + b90 for b61, b90 in ar.values())
+        ar[AR_WIND_DOWN_CUSTOMER][1] += AR_WIND_DOWN_TOTAL * jitter(rng, 0.005) - normal_total
+    for customer, (b61, b90) in ar.items():
+        rows += ar_rows(c, ws, customer, b61, b90)
 
-    dip = BOOKINGS_DIP.get(week)
+    dip_total = BOOKINGS_DIP_TOTAL.get(week)
+    if dip_total:
+        shortfall = sum(BRIGHTLINE_BOOKINGS.values()) - dip_total
+        others = sum(v for k, v in BRIGHTLINE_BOOKINGS.items() if k != BOOKINGS_DIP_LINE)
     for line, amount in BRIGHTLINE_BOOKINGS.items():
-        value = amount * dip * jitter(rng, 0.01) if dip else amount * jitter(rng, 0.05)
+        if not dip_total:
+            value = amount * jitter(rng, 0.05)
+        elif line == BOOKINGS_DIP_LINE:
+            value = (amount - shortfall * BOOKINGS_DIP_LINE_SHARE) * jitter(rng, 0.01)
+        else:
+            share_of_rest = amount / others
+            value = (amount - shortfall * (1 - BOOKINGS_DIP_LINE_SHARE) * share_of_rest) * jitter(
+                rng, 0.01
+            )
         rows.append(fact(c, ws, "bookings", value, service_line=line))
 
     return rows
@@ -185,10 +219,11 @@ def northgate_week(rng: random.Random, week: int, ws: date) -> list[dict]:
     rows += [fact(c, ws, "revenue", v, customer=name) for name, v in revenue.items()]
     total_revenue = sum(revenue.values())
 
-    rows.append(
-        fact(c, ws, "cogs", total_revenue * 0.655 * jitter(rng, 0.02), account="Product cost")
-    )
-    rows.append(fact(c, ws, "cogs", total_revenue * 0.03 * jitter(rng, 0.05), account="Freight-in"))
+    cogs = {
+        "Product cost": total_revenue * 0.655 * jitter(rng, 0.02),
+        "Freight-in": total_revenue * 0.03 * jitter(rng, 0.05),
+    }
+    rows += [fact(c, ws, "cogs", v, account=account) for account, v in cogs.items()]
 
     for account, balance in NORTHGATE_CASH.items():
         rows.append(fact(c, ws, "cash_ending", balance * jitter(rng, 0.04), account=account))
@@ -196,11 +231,18 @@ def northgate_week(rng: random.Random, week: int, ws: date) -> list[dict]:
     for customer in NORTHGATE_CUSTOMERS:
         rows += ar_rows(c, ws, customer, 8_000 * jitter(rng, 0.15), 4_000 * jitter(rng, 0.15))
 
-    for category, balance in NORTHGATE_INVENTORY.items():
-        value = balance * jitter(rng, 0.03)
-        if week == OVERSTOCK_WEEK and category == OVERSTOCK_CATEGORY:
-            value += OVERSTOCK_AMOUNT
-        rows.append(fact(c, ws, "inventory_balance", value, category=category))
+    inventory = {
+        category: balance * jitter(rng, 0.03) for category, balance in NORTHGATE_INVENTORY.items()
+    }
+    if week in OVERSTOCK_DAYS:
+        # inventory_days = total inventory / (weekly COGS / 7), so solve for the
+        # plumbing balance that makes the total hit the planted level.
+        target_total = OVERSTOCK_DAYS[week] * jitter(rng, 0.003) * sum(cogs.values()) / 7
+        others = sum(v for k, v in inventory.items() if k != OVERSTOCK_CATEGORY)
+        inventory[OVERSTOCK_CATEGORY] = target_total - others
+    rows += [
+        fact(c, ws, "inventory_balance", v, category=category) for category, v in inventory.items()
+    ]
 
     return rows
 
@@ -298,10 +340,11 @@ def build_docs(kpis: list[dict]) -> list[dict]:
             "ar_over_60",
             "2025-08-04",
             "past_explanation",
-            "What changed: AR over 60 days rose well above target. "
+            "What changed: AR over 60 days rose well above target for three weeks, then eased "
+            "back as the balances were paid down. "
             "Why: Ambercrest Logistics and Mosswood Hospitality held payments while moving to "
             "a new AP system. Owner of fix: Avery Chen. Actions: weekly calls with both AP "
-            "teams; both balances cleared within three weeks.",
+            "teams; one paid in full, the other in two installments.",
         ),
         doc(
             "brightline",
@@ -319,9 +362,10 @@ def build_docs(kpis: list[dict]) -> list[dict]:
             "2025-09-15",
             "past_explanation",
             "What changed: new bookings fell for two weeks in September. "
-            "Why: late-summer slowdown; prospects pushed signing decisions until their new "
-            "budget cycle. Owner of fix: Marcus Hale. Actions: front-loaded proposals in "
-            "August; pipeline recovered by October.",
+            "Why: late-summer slowdown, mostly in Implementation projects; prospects pushed "
+            "signing decisions until their new budget cycle. Owner of fix: Marcus Hale. "
+            "Actions: front-loaded Implementation proposals in August; pipeline recovered "
+            "by October.",
         ),
         doc(
             "brightline",
@@ -351,10 +395,11 @@ def build_docs(kpis: list[dict]) -> list[dict]:
             "inventory_days",
             "2025-09-22",
             "past_explanation",
-            "What changed: inventory days spiked above target for one week. "
+            "What changed: inventory days spiked above target, then came down over the next "
+            "two weeks. "
             "Why: purchasing placed an early bulk order of plumbing fixtures ahead of an "
             "announced supplier price increase. Owner of fix: Tom Lindqvist. Actions: sold "
-            "through the excess over the next month; added a second approval for large POs.",
+            "through the excess; added a second approval for large POs.",
         ),
         # Same KPI as a Brightline explanation, on purpose: retrieval for
         # Brightline AR must never return this Northgate document.
@@ -372,60 +417,81 @@ def build_docs(kpis: list[dict]) -> list[dict]:
     return docs
 
 
-def build_ground_truth(weeks: list[date]) -> dict:
-    def ws(n: int) -> str:
-        return weeks[n - 1].isoformat()
+# The planted events: which weeks each one affects, the status it should
+# produce, and the expected top driver(s) of the week-over-week change.
+EVENTS = [
+    {
+        "client_id": "brightline",
+        "formula_key": "ar_over_60",
+        "statuses": {5: "red", 6: "red", 7: "red", AR_WIND_DOWN_WEEK: "yellow"},
+        "top_drivers": sorted(LATE_PAYERS),
+        "driver_dimension": "customer",
+        "description": "Two customers pay late; balances age from 61-90 into 90+, "
+        "then one pays in full and the other partly in week 8.",
+    },
+    {
+        "client_id": "brightline",
+        "formula_key": "gross_margin_pct",
+        "statuses": {PRICE_INCREASE_WEEK: "red"},
+        "top_drivers": [PRICE_INCREASE_ACCOUNT],
+        "driver_dimension": "account",
+        "description": "Supplier price increase doubles subcontractor fees for one week.",
+    },
+    {
+        "client_id": "brightline",
+        "formula_key": "new_bookings",
+        "statuses": {10: "yellow", 11: "red"},
+        "top_drivers": [BOOKINGS_DIP_LINE],
+        "driver_dimension": "service_line",
+        "description": "Seasonal dip in new bookings, mostly in Implementation.",
+    },
+    {
+        "client_id": "northgate",
+        "formula_key": "inventory_days",
+        "statuses": {6: "red", 7: "red", 8: "yellow"},
+        "top_drivers": [OVERSTOCK_CATEGORY],
+        "driver_dimension": "category",
+        "description": "Overstock purchase of plumbing fixtures, sold down over two weeks.",
+    },
+]
 
-    def event(client_id, formula_key, statuses, top_drivers, driver_dimension, description):
-        return {
-            "client_id": client_id,
-            "formula_key": formula_key,
-            "weeks": [
-                {"week": n, "week_start": ws(n), "expected_status": s} for n, s in statuses.items()
-            ],
-            "top_drivers": top_drivers,
-            "driver_dimension": driver_dimension,
-            "description": description,
+
+def build_ground_truth(weeks: list[date], kpis: list[dict]) -> dict:
+    planted = {
+        (e["client_id"], e["formula_key"], n): status
+        for e in EVENTS
+        for n, status in e["statuses"].items()
+    }
+    expected = [
+        {
+            "client_id": k["client_id"],
+            "formula_key": k["formula_key"],
+            "week": n,
+            "week_start": ws.isoformat(),
+            "expected_status": planted.get((k["client_id"], k["formula_key"], n), "green"),
         }
-
+        for k in kpis
+        for n, ws in enumerate(weeks, start=1)
+    ]
+    events = [
+        {
+            "client_id": e["client_id"],
+            "formula_key": e["formula_key"],
+            "weeks": [
+                {"week": n, "week_start": weeks[n - 1].isoformat()} for n in sorted(e["statuses"])
+            ],
+            "top_drivers": e["top_drivers"],
+            "driver_dimension": e["driver_dimension"],
+            "description": e["description"],
+        }
+        for e in EVENTS
+    ]
     return {
         "seed": SEED,
         "week_starts": [w.isoformat() for w in weeks],
-        "default_status": "green",  # every client-week-KPI not listed below
-        "events": [
-            event(
-                "brightline",
-                "ar_over_60",
-                {5: "red", 6: "red", 7: "red"},
-                sorted(LATE_PAYERS),
-                "customer",
-                "Two customers pay late; their balances age from 61-90 into 90+.",
-            ),
-            event(
-                "brightline",
-                "gross_margin_pct",
-                {PRICE_INCREASE_WEEK: "red"},
-                [PRICE_INCREASE_ACCOUNT],
-                "account",
-                "Supplier price increase doubles subcontractor fees for one week.",
-            ),
-            event(
-                "brightline",
-                "new_bookings",
-                {10: "yellow", 11: "red"},
-                None,
-                None,
-                "Seasonal dip in new bookings.",
-            ),
-            event(
-                "northgate",
-                "inventory_days",
-                {OVERSTOCK_WEEK: "red"},
-                [OVERSTOCK_CATEGORY],
-                "category",
-                "Overstock purchase of plumbing fixtures.",
-            ),
-        ],
+        "false_alarm_rule": "a computed status other than green where expected_status is green",
+        "expected_statuses": expected,  # one entry per client x KPI x week (120)
+        "events": events,
     }
 
 
@@ -443,7 +509,7 @@ def generate(seed: int = SEED) -> dict:
         "kpi_definitions": kpis,
         "source_facts": facts,
         "docs": build_docs(kpis),
-        "ground_truth": build_ground_truth(weeks),
+        "ground_truth": build_ground_truth(weeks, kpis),
     }
 
 
