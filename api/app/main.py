@@ -140,5 +140,5 @@ def drivers(req: DriversRequest, connect: Connect):
         "client_id": req.client_id,
         "kpi_id": req.kpi_id,
         "week_start": req.week_start,
-        **service.as_json(result),
+        **service.drivers_output(result),
     }

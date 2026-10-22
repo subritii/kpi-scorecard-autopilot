@@ -7,12 +7,30 @@ as_json() turns them into strings for the response.
 
 import dataclasses
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 import psycopg
 from psycopg.types.json import Jsonb
 
 from app import drivers, kpis
+
+# share_of_movement is kept at full precision internally (and in drivers_json);
+# API responses show it to 4 places.
+SHARE_PLACES = Decimal("0.0001")
+
+
+def drivers_output(result: drivers.DriverResult) -> dict:
+    """DriverResult as JSON for API responses, with shares rounded to 4 places."""
+    rounded = [
+        dataclasses.replace(
+            d,
+            share_of_movement=None
+            if d.share_of_movement is None
+            else d.share_of_movement.quantize(SHARE_PLACES, rounding=ROUND_HALF_UP),
+        )
+        for d in result.drivers
+    ]
+    return as_json(dataclasses.replace(result, drivers=rounded))
 
 
 def as_json(obj):

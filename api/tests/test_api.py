@@ -268,6 +268,9 @@ def test_drivers_shape_for_ratio_kpi(seeded):
     ).json()
     assert len(body["drivers"]) == 2
     assert set(body["drivers"][0]) == {"name", "prior", "current", "change", "share_of_movement"}
+    # Shares are rounded to 4 places on output only.
+    shares = [d["share_of_movement"] for d in body["drivers"]]
+    assert all(len(s.split(".")[1]) == 4 for s in shares), shares
     assert body["denominator"]["metric"] == "revenue"
     assert body["denominator"]["exceeds_top_contributor"] is False
     assert body["warnings"] == []
