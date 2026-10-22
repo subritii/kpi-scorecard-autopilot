@@ -1,0 +1,37 @@
+#!/bin/sh
+# Pre-commit hook: block the commit unless ruff and the full test suite pass.
+# Install once per clone:  git config core.hooksPath .githooks
+#
+# Uses the API's virtualenv when present, otherwise whatever is on PATH.
+# Live tests (real Ollama) are skipped by default, as in a normal pytest run.
+# Database tests need Postgres up (docker compose up -d postgres); if it is
+# down they are skipped, and the hook warns about it.
+
+set -e
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+if [ -x "$ROOT/api/.venv/bin/pytest" ]; then
+    RUFF="$ROOT/api/.venv/bin/ruff"
+    PYTEST="$ROOT/api/.venv/bin/pytest"
+else
+    RUFF=ruff
+    PYTEST=pytest
+fi
+
+echo "pre-commit: ruff check"
+"$RUFF" check .
+echo "pre-commit: ruff format --check"
+"$RUFF" format --check .
+
+echo "pre-commit: pytest"
+# -rs lists skip reasons, so a skipped database shows up below.
+if ! OUTPUT=$(cd api && "$PYTEST" -q -rs -p no:warnings 2>&1); then
+    echo "$OUTPUT" | tail -30
+    echo "pre-commit: tests failed; commit blocked."
+    exit 1
+fi
+echo "$OUTPUT" | tail -1
+if echo "$OUTPUT" | grep -q "database not available"; then
+    echo "pre-commit: WARNING: database tests were skipped (is Postgres running?)"
+fi

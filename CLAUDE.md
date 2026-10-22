@@ -158,6 +158,7 @@ Workflows are built in the n8n editor and exported to `n8n/workflows/`. Do not r
 
 ```
 cp .env.example .env               # then fill in values
+git config core.hooksPath .githooks  # pre-commit hook: ruff + pytest must pass
 docker compose up -d               # n8n :5678, api :8000, postgres :5432
 cd api && pip install -e ".[dev]"
 pytest                             # run all tests (live tests skipped)
@@ -177,6 +178,7 @@ python scripts/run_eval.py
 - Keep `kpis.py` pure (no database or network calls) so it is easy to test.
 - Prompts live in `prompts/` as files, not inline strings.
 - After each change: run `pytest` and `ruff`. Do not say a step is done if tests fail.
+- Never commit unless the full test suite passes (read the summary line, not just the exit code). The pre-commit hook in `.githooks/` enforces this; never bypass it with `--no-verify`.
 - Explain non-obvious code with short comments. I need to be able to walk through every file in an interview.
 - Ask before adding a new dependency or service.
 - Never run destructive database commands (DROP, TRUNCATE, deleting volumes) without asking.
@@ -186,10 +188,10 @@ python scripts/run_eval.py
 - [x] **Phase 0 Setup**: docker-compose, .env.example, pyproject, health endpoint, README stub
 - [x] **Phase 1 Data**: migrations + RLS, synthetic generator + ground truth, seed script
 - [x] **Phase 2 Math**: `/compute` and `/drivers` with tests passing
-- [ ] **Phase 3 RAG**: LLM provider interface, embed_docs, `/retrieve` (client-scoped), isolation test
+- [x] **Phase 3 RAG**: LLM provider interface, embed_docs, `/retrieve` (client-scoped), isolation test
 - [ ] **Phase 4 Guardrails**: `/check-faithfulness` with tests
 - [ ] **Phase 5 Workflows**: WF1–WF6 in n8n, exported to repo
 - [ ] **Phase 6 Integrations**: one live QuickBooks sandbox report pull, ClickUp task create/comment
 - [ ] **Phase 7 Eval + ship**: `/eval/run`, `eval/results.md`, README with diagram and results
 
-Current phase: **Phase 3**
+Current phase: **Phase 4**
