@@ -227,6 +227,18 @@ def test_shares_match_as_percentages():
     assert not check("Ambercrest Logistics was 64% of the movement.", CTX).passed
 
 
+def test_share_rounded_from_the_api_value_passes():
+    # Exact share 0.91545 rounds to 91.5%; the API shows 0.9155, which rounds to
+    # 91.6%. Both are faithful; 91.7% is not.
+    from dataclasses import replace
+
+    plumbing = Contributor("Plumbing fixtures", D("1"), D("2"), D("1"), D("0.91545"))
+    ctx = replace(CTX, kpis=(replace(AR, contributors=(plumbing,)),))
+    for written, ok in [("91.5%", True), ("91.6%", True), ("91.55%", True), ("91.7%", False)]:
+        text = f"Plumbing fixtures was {written} of the movement in AR Over 60 Days."
+        assert check(text, ctx).passed is ok, written
+
+
 def test_wrong_sign_on_a_change_fails():
     [p] = problems("Ambercrest Logistics (-$32.7K) moved the most.", kind="direction")
     assert p.text == "-$32.7K"
@@ -266,6 +278,31 @@ def test_contributor_numbers_belong_to_their_kpi():
     assert check("Direct labor fell $400.", CTX).passed
     # ... but Quillfield Dental Group (a revenue contributor) didn't move by $400.
     assert not check("Quillfield Dental Group fell $400.", CTX).passed
+
+
+def test_contributor_under_two_kpis_follows_the_kpi_being_discussed():
+    # Ambercrest Logistics is both a revenue customer and an AR customer.
+    from dataclasses import replace
+
+    revenue = replace(
+        REVENUE,
+        contributors=(
+            Contributor("Ambercrest Logistics", D("29000"), D("29500"), D("500"), D("1")),
+        ),
+    )
+    ctx = replace(CTX, kpis=(revenue, GM, AR))
+    # The previous sentence is about AR, so +$32.7K is Ambercrest's AR change ...
+    assert check(
+        "AR Over 60 Days rose to $115.0K. The largest mover was Ambercrest Logistics (+$32.7K).",
+        ctx,
+    ).passed
+    # ... and after a revenue sentence, Ambercrest's numbers are its revenue numbers.
+    assert check(
+        "Weekly Revenue was $131K. The largest mover was Ambercrest Logistics (+$500).", ctx
+    ).passed
+    assert not check(
+        "Weekly Revenue was $131K. The largest mover was Ambercrest Logistics (+$32.7K).", ctx
+    ).passed
 
 
 def test_section_heading_scopes_numbers_without_a_kpi_in_the_sentence():

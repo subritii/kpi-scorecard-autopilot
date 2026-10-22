@@ -128,7 +128,7 @@ KPIs: weekly_revenue ≥ $230K, gross_margin_pct ≥ 28, cash_on_hand ≥ $600K,
 - `POST /compute` `{client_id, week_start}` → KPI values + status, writes `kpi_values`
 - `POST /drivers` `{client_id, kpi_id, week_start}` → ranked contributors with amounts
 - `POST /retrieve` `{client_id, kpi_id, week_start, query}` → past explanations of that KPI dated before `week_start`, above `RETRIEVAL_MIN_SIMILARITY` (client-scoped; empty if nothing is close enough)
-- `POST /check-faithfulness` `{run_id, text}` → pass/fail + list of unmatched numbers
+- `POST /check-faithfulness` `{client_id, run_id, text}` → pass/fail + each problem (type, exact text, reason). Owner replies are exempt only inside `render_owner_quote()` blocks that match the stored reply
 - `POST /eval/run` → metrics dict, also writes `eval/results.md`
 - `GET /health`
 
@@ -191,9 +191,9 @@ python scripts/run_eval.py
 - [x] **Phase 1 Data**: migrations + RLS, synthetic generator + ground truth, seed script
 - [x] **Phase 2 Math**: `/compute` and `/drivers` with tests passing
 - [x] **Phase 3 RAG**: LLM provider interface, embed_docs, `/retrieve` (client-scoped), isolation test
-- [ ] **Phase 4 Guardrails**: `/check-faithfulness` with tests
+- [x] **Phase 4 Guardrails**: `/check-faithfulness` with tests
 - [ ] **Phase 5 Workflows**: WF1–WF6 in n8n, exported to repo
 - [ ] **Phase 6 Integrations**: one live QuickBooks sandbox report pull, ClickUp task create/comment
 - [ ] **Phase 7 Eval + ship**: `/eval/run`, `eval/results.md`, README with diagram and results
 
-Current phase: **Phase 4**
+Current phase: **Phase 5**

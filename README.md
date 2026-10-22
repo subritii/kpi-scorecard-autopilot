@@ -85,7 +85,7 @@ without an `approved` approval (enforced in the database).
 - [x] Phase 1 Data
 - [x] Phase 2 Math
 - [x] Phase 3 RAG
-- [ ] Phase 4 Guardrails
+- [x] Phase 4 Guardrails
 - [ ] Phase 5 Workflows
 - [ ] Phase 6 Integrations
 - [ ] Phase 7 Eval + ship

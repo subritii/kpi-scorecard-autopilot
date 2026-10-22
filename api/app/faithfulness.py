@@ -51,9 +51,14 @@ are not detected.
 import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 MASK = "\x00"  # replaces handled text; not a space, so it never looks like a sentence break
+
+# API responses round share_of_movement to 4 places (0.9155). Text written from
+# that rounded share (91.6%) is faithful too, even when the exact share
+# (0.91545...) would round to 91.5%, so both are accepted.
+SHARE_PLACES = Decimal("0.0001")
 
 
 # --- inputs ----------------------------------------------------------------------
@@ -311,9 +316,13 @@ def _value_pools(k: KpiContext) -> dict[str, list[tuple[Decimal, bool]]]:
         "change": own(k.net_change) + [(c.change, False) for c in k.contributors] + den("change"),
         "target": own(k.target),
         "share": [
-            (c.share_of_movement * 100, True)
+            (share * 100, True)
             for c in k.contributors
             if c.share_of_movement is not None
+            for share in (
+                c.share_of_movement,
+                c.share_of_movement.quantize(SHARE_PLACES, rounding=ROUND_HALF_UP),
+            )
         ],
     }
 
@@ -453,15 +462,20 @@ def check(text: str, ctx: RunContext) -> CheckResult:
             return section_kpi(pos)
         if mention.kpi:
             return mention.kpi
-        # A contributor: prefer a KPI named in the same sentence, then the section's.
+        # A contributor can sit under several KPIs (a customer in both revenue and
+        # AR). Prefer a KPI named in the same sentence, then the section's, then
+        # the KPI most recently named before it (the narrative is still about it).
+        own = {k.kpi_id: k for k, _ in mention.contributors}
         lo, hi = sentence(pos)
-        preferred = {mn.kpi.kpi_id for mn in mentions if lo <= mn.start < hi and mn.kpi}
+        for mn in mentions:
+            if lo <= mn.start < hi and mn.kpi and mn.kpi.kpi_id in own:
+                return mn.kpi
         section = section_kpi(pos)
-        if section:
-            preferred.add(section.kpi_id)
-        for k, _ in mention.contributors:
-            if k.kpi_id in preferred:
-                return k
+        if section and section.kpi_id in own:
+            return section
+        earlier = [mn for mn in mentions if mn.kpi and mn.end <= pos and mn.kpi.kpi_id in own]
+        if earlier:
+            return max(earlier, key=lambda mn: mn.end).kpi
         return mention.contributors[0][0]
 
     # 5. Numbers: each must be one of its KPI's values, of the kind its wording implies.

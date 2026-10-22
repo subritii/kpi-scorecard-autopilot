@@ -12,11 +12,12 @@ from decimal import ROUND_HALF_UP, Decimal
 import psycopg
 from psycopg.types.json import Jsonb
 
-from app import drivers, kpis
+from app import drivers, faithfulness, kpis
 
 # share_of_movement is kept at full precision internally (and in drivers_json);
-# API responses show it to 4 places.
-SHARE_PLACES = Decimal("0.0001")
+# API responses show it to 4 places. Defined in faithfulness.py, which must accept
+# numbers written from the shown value.
+SHARE_PLACES = faithfulness.SHARE_PLACES
 
 
 def drivers_output(result: drivers.DriverResult) -> dict:
@@ -151,4 +152,133 @@ def kpi_exists(conn: psycopg.Connection, client_id: str, kpi_id: int) -> bool:
             "SELECT 1 FROM kpi_definitions WHERE id = %s AND client_id = %s", (kpi_id, client_id)
         ).fetchone()
         is not None
+    )
+
+
+# The packet lists each KPI's top drivers; "3 customers" in the text may refer
+# to that list as well as to all contributors.
+PACKET_DRIVERS_LISTED = 3
+
+
+class NotComputed(Exception):
+    """The run's week has no kpi_values yet (POST /compute first)."""
+
+
+def _dec(value) -> Decimal | None:
+    # drivers_json stores Decimals as strings (see as_json), never floats.
+    return None if value is None else Decimal(value)
+
+
+def _red_streak(statuses: list[tuple[date, str]], week_start: date) -> int:
+    """Consecutive red weeks ending at week_start. A missing week breaks the streak."""
+    by_week = dict(statuses)
+    streak, week = 0, week_start
+    while by_week.get(week) == "red":
+        streak += 1
+        week -= timedelta(weeks=1)
+    return streak
+
+
+def run_context(
+    conn: psycopg.Connection, client_id: str, run_id: int
+) -> faithfulness.RunContext | None:
+    """Everything the faithfulness check may cite for one run. None if the run isn't
+    this client's; NotComputed if its week has no KPI values yet."""
+    run = conn.execute(
+        "SELECT week_start FROM weekly_runs WHERE id = %s AND client_id = %s", (run_id, client_id)
+    ).fetchone()
+    if run is None:
+        return None
+    week_start = run["week_start"]
+
+    client_name = conn.execute("SELECT name FROM clients WHERE id = %s", (client_id,)).fetchone()[
+        "name"
+    ]
+    rows = conn.execute(
+        """
+        SELECT d.id, d.formula_key, d.name, d.direction, d.target, d.owner_name,
+               v.value, v.prior_value, v.status, v.drivers_json
+        FROM kpi_definitions d
+        LEFT JOIN kpi_values v
+               ON v.kpi_id = d.id AND v.client_id = d.client_id AND v.week_start = %s
+        WHERE d.client_id = %s
+        ORDER BY d.id
+        """,
+        (week_start, client_id),
+    ).fetchall()
+    if not any(r["status"] for r in rows):
+        raise NotComputed(f"no KPI values for {client_id} week of {week_start}")
+
+    history: dict[int, list[tuple[date, str]]] = {}
+    for h in conn.execute(
+        "SELECT kpi_id, week_start, status FROM kpi_values"
+        " WHERE client_id = %s AND week_start <= %s",
+        (client_id, week_start),
+    ):
+        history.setdefault(h["kpi_id"], []).append((h["week_start"], h["status"]))
+
+    kpi_contexts = []
+    for r in rows:
+        stored = r["drivers_json"] or {}
+        contributors = tuple(
+            faithfulness.Contributor(
+                name=c["name"],
+                prior=Decimal(c["prior"]),
+                current=Decimal(c["current"]),
+                change=Decimal(c["change"]),
+                share_of_movement=_dec(c["share_of_movement"]),
+            )
+            for c in stored.get("drivers", [])
+        )
+        den = stored.get("denominator")
+        kpi_contexts.append(
+            faithfulness.KpiContext(
+                kpi_id=r["id"],
+                formula_key=r["formula_key"],
+                name=r["name"],
+                direction=r["direction"],
+                value=r["value"],
+                prior_value=r["prior_value"],
+                target=r["target"],
+                net_change=_dec(stored.get("net_change")),
+                contributors=contributors,
+                denominator=faithfulness.Denominator(
+                    den["metric"],
+                    Decimal(den["prior"]),
+                    Decimal(den["current"]),
+                    Decimal(den["change"]),
+                )
+                if den
+                else None,
+                status=r["status"] or "no_data",
+                red_streak=_red_streak(history.get(r["id"], []), week_start),
+                listed_count=min(PACKET_DRIVERS_LISTED, len(contributors)),
+            )
+        )
+
+    # owner_responses has no client_id; the join keeps the query client-scoped (rule 3).
+    replies = conn.execute(
+        """
+        SELECT o.kpi_id, o.what_changed, o.why, o.owner_of_fix, o.actions
+        FROM owner_responses o JOIN weekly_runs r ON r.id = o.run_id
+        WHERE o.run_id = %s AND r.client_id = %s
+        ORDER BY o.id
+        """,
+        (run_id, client_id),
+    ).fetchall()
+    return faithfulness.RunContext(
+        week_start=week_start,
+        client_name=client_name,
+        people=tuple(sorted({r["owner_name"] for r in rows})),
+        kpis=tuple(kpi_contexts),
+        owner_responses=tuple(
+            faithfulness.OwnerResponse(
+                kpi_id=o["kpi_id"],
+                what_changed=o["what_changed"] or "",
+                why=o["why"] or "",
+                owner_of_fix=o["owner_of_fix"] or "",
+                actions=o["actions"] or "",
+            )
+            for o in replies
+        ),
     )

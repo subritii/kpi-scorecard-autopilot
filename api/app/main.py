@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app import retrieval, service
+from app import faithfulness, retrieval, service
 from app.db import client_connection
 from app.llm import get_provider
 from app.llm.base import LLMConfigError, LLMError, LLMProvider
@@ -155,6 +155,28 @@ class RetrieveResponse(BaseModel):
     results: list[MatchOut]
 
 
+class FaithfulnessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    client_id: str = Field(min_length=1)  # every connection is client-scoped (RLS)
+    run_id: int
+    text: str = Field(min_length=1)  # the packet as Markdown, owner quotes included
+
+
+class ProblemOut(BaseModel):
+    type: str
+    text: str
+    reason: str
+    start: int
+
+
+class FaithfulnessResponse(BaseModel):
+    client_id: str
+    run_id: int
+    passed: bool
+    problems: list[ProblemOut]
+
+
 class DriversResponse(BaseModel):
     client_id: str
     kpi_id: int
@@ -245,5 +267,30 @@ def retrieve(req: RetrieveRequest, connect: Connect, llm: LLM):
                 "text": m.text,
             }
             for m in found.results
+        ],
+    }
+
+
+@app.post("/check-faithfulness", response_model=FaithfulnessResponse)
+def check_faithfulness(req: FaithfulnessRequest, connect: Connect):
+    """Check AI-written packet text against the run's data. A safety net before the
+    Controller's review, not a replacement for it."""
+    with connect(req.client_id) as conn:
+        try:
+            ctx = service.run_context(conn, req.client_id, req.run_id)
+        except service.NotComputed as e:
+            raise HTTPException(
+                status_code=409, detail=f"{e}; run POST /compute for that week first"
+            ) from e
+    if ctx is None:
+        raise HTTPException(status_code=404, detail="run not found for this client")
+    result = faithfulness.check(req.text, ctx)
+    return {
+        "client_id": req.client_id,
+        "run_id": req.run_id,
+        "passed": result.passed,
+        "problems": [
+            {"type": p.type, "text": p.text, "reason": p.reason, "start": p.start}
+            for p in result.problems
         ],
     }
