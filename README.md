@@ -56,6 +56,29 @@ synthetic data. Treat it as a starting point, re-measure with `python scripts/tu
 (prints both groups and a suggested value) when the embedding model or the documents change,
 and expect to revisit it with real history.
 
+## Faithfulness check
+
+Before a packet goes to the Controller, `/check-faithfulness` checks every AI-written
+sentence against the run's data: numbers must be values of the KPI they describe (current
+vs. prior wording included), names must be real contributors, dates must be the run's
+week, directions must match the change, and causal language ("because", "due to") is
+flagged, since only KPI owners explain causes. Owner replies are quoted verbatim and
+exempt, but only if they match the stored reply exactly.
+
+**The checker is a safety net, not the control.** It catches common LLM mistakes
+automatically; the Controller's approval is the final control, and nothing is sent
+without an `approved` approval (enforced in the database).
+
+## Known limitations
+
+- **Lowercase invented names aren't detected.** Names are found by capitalization, so a
+  made-up "marketing spend" account slips through; "Marketing Spend" would be flagged.
+- **Spelled-out numbers aren't checked.** "two customers" is not verified; "2 customers"
+  is, against the real counts (contributors listed, red KPIs, consecutive red weeks).
+- **The checks are heuristics tuned to the packet's style.** They fail closed (when
+  unsure, they flag), which can mean false alarms on unusual phrasing.
+- **The retrieval threshold is tuned on a small synthetic set** (see above).
+
 ## Status
 
 - [x] Phase 0 Setup
