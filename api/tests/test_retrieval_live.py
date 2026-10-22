@@ -16,10 +16,10 @@ import psycopg
 import pytest
 from psycopg import sql
 from psycopg.rows import dict_row
-from retrieval_cases import DOCS, NO_HISTORY_QUERY, planted_cases
 
 from app import retrieval
 from app.config import REPO_ROOT
+from app.eval_cases import DOCS, NO_HISTORY_QUERY, planted_cases
 from app.llm import get_provider
 
 pytestmark = pytest.mark.live

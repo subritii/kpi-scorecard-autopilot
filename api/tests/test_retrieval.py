@@ -16,10 +16,10 @@ import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
 from psycopg.rows import dict_row
-from retrieval_cases import DOCS, NO_HISTORY_QUERY, planted_cases
 
 from app import retrieval
 from app.config import REPO_ROOT
+from app.eval_cases import DOCS, NO_HISTORY_QUERY, planted_cases
 from app.llm.base import EmbeddingDimensionError
 from app.llm.fake import FakeProvider
 from app.main import app, get_connect, get_llm

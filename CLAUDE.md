@@ -44,6 +44,7 @@ This is a portfolio project. Synthetic data and sandboxes only.
 │   │   ├── drivers.py        # top contributors to a change
 │   │   ├── faithfulness.py   # every number in text must exist in kpi_values
 │   │   ├── retrieval.py      # pgvector search, always client-scoped
+│   │   ├── eval_cases.py     # test cases from the seed data (tests, tuning, eval)
 │   │   └── llm/
 │   │       ├── base.py       # LLMProvider interface: complete(), embed()
 │   │       ├── azure_openai.py
@@ -168,6 +169,7 @@ python scripts/generate_synthetic.py
 python scripts/migrate.py          # as admin; applies db/migrations, sets app_user password
 python scripts/seed_db.py          # as admin; upserts data/seed/ in one transaction
 python scripts/embed_docs.py       # as admin; re-runnable (upserts on doc_key)
+python scripts/tune_retrieval.py   # real model; suggests RETRIEVAL_MIN_SIMILARITY (rolled back)
 python scripts/run_eval.py
 ```
 
@@ -178,7 +180,7 @@ python scripts/run_eval.py
 - Keep `kpis.py` pure (no database or network calls) so it is easy to test.
 - Prompts live in `prompts/` as files, not inline strings.
 - After each change: run `pytest` and `ruff`. Do not say a step is done if tests fail.
-- Never commit unless the full test suite passes (read the summary line, not just the exit code). The pre-commit hook in `.githooks/` enforces this; never bypass it with `--no-verify`.
+- Never commit unless the full test suite passes (read the summary line, not just the exit code). The pre-commit hook in `.githooks/` enforces this, and also blocks when Postgres is down (the security tests must run, not skip); never bypass it with `--no-verify`.
 - Explain non-obvious code with short comments. I need to be able to walk through every file in an interview.
 - Ask before adding a new dependency or service.
 - Never run destructive database commands (DROP, TRUNCATE, deleting volumes) without asking.

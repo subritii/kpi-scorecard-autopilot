@@ -32,6 +32,7 @@ Local development of the API:
 
 ```bash
 git config core.hooksPath .githooks   # once per clone: blocks commits unless ruff + pytest pass
+                                      # (Postgres must be up: database tests may not skip)
 cd api
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
@@ -51,8 +52,9 @@ evidence. With `nomic-embed-text` it is set to **0.73**, the middle of the gap b
 | highest wrong match (other-KPI explanations, cross-client distractor, no-history query) | 0.6877 |
 
 **This is tuned on a small test set:** 4 correct pairs and 17 wrong ones from the
-synthetic data. Treat it as a starting point, re-measure with `pytest --live -s` when the
-embedding model or the documents change, and expect to revisit it with real history.
+synthetic data. Treat it as a starting point, re-measure with `python scripts/tune_retrieval.py`
+(prints both groups and a suggested value) when the embedding model or the documents change,
+and expect to revisit it with real history.
 
 ## Status
 

@@ -1,4 +1,4 @@
-"""Retrieval test cases built from the seed data, shared by the fake and live tests."""
+"""Test cases built from the seed data: shared by tests, scripts/tune_retrieval.py and the eval."""
 
 import json
 from dataclasses import dataclass
