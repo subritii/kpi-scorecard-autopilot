@@ -1,3 +1,5 @@
+import os
+
 import httpx
 import pytest
 
@@ -5,6 +7,8 @@ from app.config import load_env
 
 # Let tests find DATABASE_URL etc. from the repo's .env when run locally.
 load_env()
+# Every endpoint needs an API key; tests use the .env one, or this fallback.
+os.environ.setdefault("API_KEY", "test-api-key-" + "0" * 32)
 
 
 def pytest_addoption(parser):

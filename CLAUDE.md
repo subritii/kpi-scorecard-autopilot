@@ -180,6 +180,7 @@ python scripts/run_eval.py
 - Keep `kpis.py` pure (no database or network calls) so it is easy to test.
 - Prompts live in `prompts/` as files, not inline strings.
 - After each change: run `pytest` and `ruff`. Do not say a step is done if tests fail.
+- Every API route needs the `X-API-Key` header (`API_KEY` in `.env`, 32+ characters; the API won't start without it), `/health` included. Only `/docs` and `/openapi.json` are exempt, and only when `DOCS_ENABLED=true` (development). Ports bind to 127.0.0.1.
 - Never commit unless the full test suite passes (read the summary line, not just the exit code). The pre-commit hook in `.githooks/` enforces this, and also blocks when Postgres is down (the security tests must run, not skip); never bypass it with `--no-verify`.
 - Explain non-obvious code with short comments. I need to be able to walk through every file in an interview.
 - Ask before adding a new dependency or service.

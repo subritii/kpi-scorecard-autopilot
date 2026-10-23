@@ -26,7 +26,7 @@ spec = importlib.util.spec_from_file_location("embed_docs", REPO_ROOT / "scripts
 embed_docs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(embed_docs)
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": os.environ["API_KEY"]})
 GROUND_TRUTH = json.loads((REPO_ROOT / "data" / "seed" / "ground_truth.json").read_text())
 WEEK_5 = "2026-08-03"  # Brightline: AR over 60 is the only red KPI
 CONTROLLER = "controller@ledgerline-cfo.example"

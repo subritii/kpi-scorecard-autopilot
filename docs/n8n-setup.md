@@ -30,19 +30,29 @@ any open state -> needs_attention -> asking | assembling
   Set `WEBHOOK_URL=http://localhost:5678/` on the n8n container so the link
   works from your browser.
 - **Error workflow.** In each of WF1-WF5: *Settings > Error workflow > WF6*.
-- **The API has no authentication yet.** It is only exposed on localhost and
-  the Compose network. Before exposing it anywhere, add an API key header (an
-  n8n *Header Auth* credential) and check it in FastAPI.
+- **Every API call needs the API key.** Create one n8n *Header Auth*
+  credential (name `X-API-Key`, value = `API_KEY` from `.env`) and select it
+  in every HTTP Request node (*Authentication: Generic > Header Auth*). A
+  missing or wrong key gets `401`. That includes `/health`: any health check
+  or ping sends the key too. The API won't start without a key of at least 32
+  characters.
+- **Ports are bound to 127.0.0.1** (API 8000, n8n 5678, Postgres 5432), so
+  nothing is reachable from your network. n8n reaches the API over the Compose
+  network at `http://api:8000`.
+- **API docs** (`/docs`) are off. For development, set `DOCS_ENABLED=true` in
+  `.env` and restart the API; the docs pages then open without the key, so
+  never enable them anywhere else.
 
 ## Credentials you'll need
 
 | Credential (n8n type) | Used by | Setup |
 |---|---|---|
+| **Header Auth** (`X-API-Key`) | every HTTP Request node | Name `X-API-Key`, value `API_KEY` from `.env`. |
 | **Gmail OAuth2 API** | WF2, WF3, WF4, WF6 | Google Cloud project, enable the Gmail API, OAuth consent screen (External, add yourself as a test user), OAuth client ID of type *Web application* with redirect URI `http://localhost:5678/rest/oauth2-credential/callback`. Paste the client ID and secret into n8n and sign in with a test Gmail account. |
 | ClickUp API (Phase 6) | WF1, WF4 | Personal API token. Not needed yet. |
 | QuickBooks Online OAuth2 (Phase 6) | WF1 | Intuit developer sandbox app. Not needed yet. |
 
-No database, LLM or Azure credentials go into n8n.
+No database, LLM or Azure credentials go into n8n; the API key is its only way in.
 
 ## Endpoints
 
@@ -58,6 +68,7 @@ No database, LLM or Azure credentials go into n8n.
 | `POST /runs/{id}/needs-attention` | `client_id, reason` | `state: needs_attention` |
 
 `409` always means "the run's state doesn't allow this step"; the `detail` says why.
+`401` means the `X-API-Key` header is missing or wrong.
 
 ## WF1 Collect & compute (Mon 06:00)
 

@@ -28,7 +28,7 @@ spec = importlib.util.spec_from_file_location("embed_docs", REPO_ROOT / "scripts
 embed_docs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(embed_docs)
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": os.environ["API_KEY"]})
 FAKE_THRESHOLD = "0.2"  # the fake embedder's own scale; real models are tuned live
 CASES = planted_cases()
 

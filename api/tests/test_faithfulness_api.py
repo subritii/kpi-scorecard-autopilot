@@ -20,7 +20,7 @@ from app.config import REPO_ROOT
 from app.faithfulness import OwnerResponse, render_owner_quote
 from app.main import app, get_connect
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": os.environ["API_KEY"]})
 WEEK_4, WEEK_5, WEEK_6, WEEK_7 = "2026-07-27", "2026-08-03", "2026-08-10", "2026-08-17"
 
 

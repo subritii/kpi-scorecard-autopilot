@@ -19,7 +19,7 @@ from psycopg.rows import dict_row
 from app.config import REPO_ROOT
 from app.main import app, get_connect
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": os.environ["API_KEY"]})
 GROUND_TRUTH = json.loads((REPO_ROOT / "data" / "seed" / "ground_truth.json").read_text())
 TEST_CLIENT = "api_test_client"
 

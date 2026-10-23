@@ -5,23 +5,44 @@ Money and percentages are returned as strings (e.g. "131000.50") so no JSON
 client can turn them into floats.
 """
 
+import os
 from collections.abc import Callable
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, asynccontextmanager
 from datetime import date
 from functools import lru_cache
 from typing import Annotated, Literal
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app import faithfulness, retrieval, runs, service
+from app.auth import check_configured_key, require_api_key
 from app.db import client_connection
 from app.llm import get_provider
 from app.llm.base import LLMConfigError, LLMError, LLMProvider
 
-app = FastAPI(title="KPI Scorecard Autopilot API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Refuse to start without a strong API_KEY, rather than failing per request.
+    check_configured_key()
+    yield
+
+
+# FastAPI's built-in docs are off; see /docs below (development only).
+app = FastAPI(
+    title="KPI Scorecard Autopilot API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
+# Every API route lives on this router and needs the API key (app/auth.py).
+api = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @app.exception_handler(LLMError)
@@ -208,13 +229,13 @@ class DriversResponse(BaseModel):
 # --- routes --------------------------------------------------------------------
 
 
-@app.get("/health")
+@api.get("/health")
 def health() -> dict[str, str]:
-    # Liveness only: confirms the process is up.
+    # Liveness only: confirms the process is up. Needs the API key like every route.
     return {"status": "ok"}
 
 
-@app.post("/compute", response_model=ComputeResponse)
+@api.post("/compute", response_model=ComputeResponse)
 def compute(req: WeekRequest, connect: Connect):
     """Compute all KPIs for a client-week and write them to kpi_values."""
     with connect(req.client_id) as conn:
@@ -228,7 +249,7 @@ def compute(req: WeekRequest, connect: Connect):
     }
 
 
-@app.post("/drivers", response_model=DriversResponse)
+@api.post("/drivers", response_model=DriversResponse)
 def drivers(req: DriversRequest, connect: Connect):
     """Ranked week-over-week contributors to one KPI."""
     with connect(req.client_id) as conn:
@@ -243,7 +264,7 @@ def drivers(req: DriversRequest, connect: Connect):
     }
 
 
-@app.post("/retrieve", response_model=RetrieveResponse)
+@api.post("/retrieve", response_model=RetrieveResponse)
 def retrieve(req: RetrieveRequest, connect: Connect, llm: LLM):
     """Last year's explanations of a similar move in this KPI, if any are close enough.
 
@@ -287,7 +308,7 @@ def retrieve(req: RetrieveRequest, connect: Connect, llm: LLM):
     }
 
 
-@app.post("/check-faithfulness", response_model=FaithfulnessResponse)
+@api.post("/check-faithfulness", response_model=FaithfulnessResponse)
 def check_faithfulness(req: FaithfulnessRequest, connect: Connect):
     """Check AI-written packet text against the run's data. A safety net before the
     Controller's review, not a replacement for it."""
@@ -348,27 +369,27 @@ class AttentionRequest(ClientRequest, NonBlank):
     reason: str = Field(min_length=1)
 
 
-@app.post("/runs/start")
+@api.post("/runs/start")
 def runs_start(req: WeekRequest, connect: Connect):
     """Compute the week, create its run (collecting -> asking), return the red KPIs."""
     with connect(req.client_id) as conn:
         return service.as_json(runs.start(conn, req.client_id, req.week_start))
 
 
-@app.get("/runs/{run_id}")
+@api.get("/runs/{run_id}")
 def runs_get(run_id: int, client_id: str, connect: Connect):
     """State, packet, recipients, approval and unanswered KPIs, for n8n."""
     with connect(client_id) as conn:
         return service.as_json(runs.describe(conn, client_id, run_id))
 
 
-@app.post("/runs/{run_id}/observations")
+@api.post("/runs/{run_id}/observations")
 def runs_observations(run_id: int, req: ClientRequest, connect: Connect, llm: LLM):
     """An owner message per red KPI: LLM observation (checked, one retry) or template."""
     return service.as_json(runs.observations(connect, llm, req.client_id, run_id))
 
 
-@app.post("/runs/{run_id}/responses")
+@api.post("/runs/{run_id}/responses")
 def runs_responses(run_id: int, req: ResponseRequest, connect: Connect):
     """Save an owner's reply, verbatim."""
     reply = req.model_dump(exclude={"client_id"})
@@ -376,14 +397,14 @@ def runs_responses(run_id: int, req: ResponseRequest, connect: Connect):
         return runs.save_response(conn, req.client_id, run_id, reply)
 
 
-@app.post("/runs/{run_id}/packet")
+@api.post("/runs/{run_id}/packet")
 def runs_packet(run_id: int, req: ClientRequest, connect: Connect):
     """Assemble and check the packet; awaiting_approval if it passes."""
     with connect(req.client_id) as conn:
         return service.as_json(runs.build_packet(conn, req.client_id, run_id))
 
 
-@app.post("/runs/{run_id}/approval")
+@api.post("/runs/{run_id}/approval")
 def runs_approval(run_id: int, req: ApprovalRequest, connect: Connect):
     """Record the Controller's decision on the current packet version (insert-only)."""
     with connect(req.client_id) as conn:
@@ -392,15 +413,42 @@ def runs_approval(run_id: int, req: ApprovalRequest, connect: Connect):
         )
 
 
-@app.post("/runs/{run_id}/mark-sent")
+@api.post("/runs/{run_id}/mark-sent")
 def runs_mark_sent(run_id: int, req: ClientRequest, connect: Connect):
     """Mark the run sent. 409 unless the current packet version is approved."""
     with connect(req.client_id) as conn:
         return runs.mark_sent(conn, req.client_id, run_id)
 
 
-@app.post("/runs/{run_id}/needs-attention")
+@api.post("/runs/{run_id}/needs-attention")
 def runs_needs_attention(run_id: int, req: AttentionRequest, connect: Connect):
     """Flag the run for a human (WF6 error handler), with the reason logged."""
     with connect(req.client_id) as conn:
         return runs.needs_attention(conn, req.client_id, run_id, req.reason)
+
+
+# --- development docs ------------------------------------------------------------------
+# Off unless DOCS_ENABLED is set. These are the only routes without the API key
+# (so a browser can open them), which is why they must stay off outside development.
+
+
+def docs_enabled() -> bool:
+    return os.environ.get("DOCS_ENABLED", "").strip().lower() in {"1", "true", "yes"}
+
+
+@app.get("/openapi.json", include_in_schema=False)
+def openapi_schema():
+    if not docs_enabled():
+        raise HTTPException(status_code=404)
+    return app.openapi()
+
+
+@app.get("/docs", include_in_schema=False)
+def swagger_ui() -> HTMLResponse:
+    if not docs_enabled():
+        raise HTTPException(status_code=404)
+    return get_swagger_ui_html(openapi_url="/openapi.json", title=app.title)
+
+
+# Mount the key-protected API routes on the app.
+app.include_router(api)
