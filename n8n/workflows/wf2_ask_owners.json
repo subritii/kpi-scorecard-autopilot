@@ -74,7 +74,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "smtp-from@example.com",
+        "fromEmail": "={{ $env.SMTP_FROM }}",
         "toEmail": "={{ $json.email.to.join(', ') }}",
         "subject": "={{ $json.email.subject }}",
         "emailFormat": "text",
@@ -142,7 +142,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "c523dd89-f85c-4ada-8479-c1e98498ad85",
+  "versionId": "a9d98514-3d59-4279-9ef3-cc516238fd12",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c2ca7174a521a4c149b699ccdf6601469a40d90bc75e1e3f4369c9e0dbfcf1e1"

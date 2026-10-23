@@ -38,6 +38,8 @@ needs_attention -> sent | awaiting_approval   (only by resolving a stuck send cl
 - **The API writes every email; n8n only sends them.** Endpoints return ready
   emails as `{to, subject, body}`; the approval and leadership emails also have
   `html`. In each Send Email node:
+  - *From Email*: `{{ $env.SMTP_FROM }}` (set in `.env`, so no address is in the
+    workflow exports),
   - *To*: `{{ $json.<email>.to.join(', ') }}` (`to` is a list),
   - *Subject*: `subject`; *Text*: `body`,
   - for emails with `html` (approval, leadership): *Email Format* **Both** and
