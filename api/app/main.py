@@ -367,6 +367,17 @@ class ApprovalRequest(ClientRequest, NonBlank):
     edits: str | None = None  # the Controller's notes; the packet itself is not edited
 
 
+class SendRequest(ClientRequest, NonBlank):
+    # Identifies the sender, e.g. the n8n execution id; reused on a retry.
+    idempotency_key: str = Field(min_length=8, max_length=200)
+
+
+class ResolveClaimRequest(ClientRequest, NonBlank):
+    resolution: Literal["sent", "not_sent"]
+    resolved_by: str = Field(min_length=1)  # who checked the leadership inbox
+    note: str | None = None
+
+
 class AttentionRequest(ClientRequest, NonBlank):
     reason: str = Field(min_length=1)
 
@@ -415,11 +426,27 @@ def runs_approval(run_id: int, req: ApprovalRequest, connect: Connect):
         )
 
 
-@api.post("/runs/{run_id}/mark-sent")
-def runs_mark_sent(run_id: int, req: ClientRequest, connect: Connect):
-    """Mark the run sent. 409 unless the current packet version is approved."""
+@api.post("/runs/{run_id}/claim-send")
+def runs_claim_send(run_id: int, req: SendRequest, connect: Connect):
+    """Claim the send of the approved packet; returns the email to send. Call before emailing."""
     with connect(req.client_id) as conn:
-        return runs.mark_sent(conn, req.client_id, run_id)
+        return service.as_json(runs.claim_send(conn, req.client_id, run_id, req.idempotency_key))
+
+
+@api.post("/runs/{run_id}/mark-sent")
+def runs_mark_sent(run_id: int, req: SendRequest, connect: Connect):
+    """Mark the run sent, with the claim's key. An already-sent run returns success."""
+    with connect(req.client_id) as conn:
+        return runs.mark_sent(conn, req.client_id, run_id, req.idempotency_key)
+
+
+@api.post("/runs/{run_id}/resolve-claim")
+def runs_resolve_claim(run_id: int, req: ResolveClaimRequest, connect: Connect):
+    """Settle a stuck send claim: the packet went out ("sent") or it didn't ("not_sent")."""
+    with connect(req.client_id) as conn:
+        return runs.resolve_claim(
+            conn, req.client_id, run_id, req.resolution, req.resolved_by, req.note
+        )
 
 
 @api.post("/runs/{run_id}/needs-attention")

@@ -298,21 +298,113 @@ def test_only_the_clients_controller_can_approve(db):
     assert resp.status_code == 403
 
 
-def test_approve_then_mark_sent(db):
+KEY = "n8n-execution-1001"  # n8n passes its execution id as the idempotency key
+
+
+def claim(rid, key=KEY):
+    return post(f"/runs/{rid}/claim-send", idempotency_key=key)
+
+
+def mark_sent(rid, key=KEY):
+    return post(f"/runs/{rid}/mark-sent", idempotency_key=key)
+
+
+def approved_run() -> int:
+    run = to_awaiting_approval()
+    post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="approved")
+    return run["run_id"]
+
+
+def test_approve_claim_then_mark_sent(db):
     run = to_awaiting_approval()
     rid = run["run_id"]
-    assert post(f"/runs/{rid}/mark-sent").status_code == 409  # not approved yet
+    assert claim(rid).status_code == 409  # not approved yet
     approval = post(
         f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved", edits="Looks good."
     )
     assert approval.status_code == 200 and approval.json()["state"] == "awaiting_approval"
-    got = client.get(f"/runs/{rid}", params={"client_id": "brightline"}).json()
-    assert got["approved"] is True
-    assert got["leadership_emails"] == ["ceo@brightline.example", "coo@brightline.example"]
-    sent = post(f"/runs/{rid}/mark-sent")
+    claimed = claim(rid)
+    assert claimed.status_code == 200
+    body = claimed.json()
+    assert body["claimed"] is True and body["repeated"] is False
+    assert body["packet_email"]["to"] == ["ceo@brightline.example", "coo@brightline.example"]
+    sent = mark_sent(rid)
     assert sent.status_code == 200 and sent.json()["state"] == "sent"
-    assert post(f"/runs/{rid}/mark-sent").status_code == 409  # already sent
     assert events(db, rid)[-1] == ("awaiting_approval", "sent")
+
+
+# --- claiming the send ---------------------------------------------------------------------------
+
+
+def test_mark_sent_without_a_claim_is_409(db):
+    rid = approved_run()
+    resp = mark_sent(rid)
+    assert resp.status_code == 409 and "claim" in resp.json()["detail"]
+
+
+def test_same_key_retry_gets_the_same_claim(db):
+    # n8n retried the claim request because the response was lost: let it continue.
+    rid = approved_run()
+    first, retry = claim(rid).json(), claim(rid).json()
+    assert retry["repeated"] is True
+    assert retry["packet_email"] == first["packet_email"]
+    assert retry["claimed_at"] == first["claimed_at"]
+
+
+def test_second_execution_cannot_claim(db):
+    # A new execution (different key) must not send again.
+    rid = approved_run()
+    claim(rid, key="n8n-execution-1001")
+    resp = claim(rid, key="n8n-execution-2002")
+    assert resp.status_code == 409 and "already claimed" in resp.json()["detail"]
+
+
+def test_mark_sent_needs_the_claimers_key(db):
+    rid = approved_run()
+    claim(rid, key="n8n-execution-1001")
+    assert mark_sent(rid, key="n8n-execution-2002").status_code == 409
+    assert db.execute("SELECT state FROM weekly_runs WHERE id = %s", (rid,)).fetchone()[
+        "state"
+    ] == ("awaiting_approval")
+
+
+def test_mark_sent_on_a_sent_run_is_success(db):
+    rid = approved_run()
+    claim(rid)
+    mark_sent(rid)
+    again = mark_sent(rid)  # n8n retried mark-sent
+    assert again.status_code == 200
+    assert again.json() == {
+        "run_id": rid,
+        "client_id": "brightline",
+        "state": "sent",
+        "already_sent": True,
+    }
+    assert [e for e in events(db, rid) if e[1] == "sent"] == [("awaiting_approval", "sent")]
+
+
+def test_claim_on_a_sent_run_is_409(db):
+    # The email already went out; never hand out the packet email again.
+    rid = approved_run()
+    claim(rid)
+    mark_sent(rid)
+    resp = claim(rid)
+    assert resp.status_code == 409 and "already sent" in resp.json()["detail"]
+
+
+def test_claimed_run_cannot_be_rebuilt(db):
+    # The email may already be out; a person must check before anything changes.
+    rid = approved_run()
+    claim(rid)
+    post(f"/runs/{rid}/needs-attention", reason="Gmail node timed out")
+    resp = post(f"/runs/{rid}/packet")
+    assert resp.status_code == 409 and "claimed" in resp.json()["detail"]
+
+
+@pytest.mark.parametrize("key", ["", "short"])
+def test_idempotency_key_is_required(db, key):
+    rid = approved_run()
+    assert claim(rid, key=key).status_code == 422
 
 
 def test_second_approval_is_409(db):
@@ -329,16 +421,18 @@ def test_rejected_packet_cannot_be_sent_until_rebuilt_and_approved(db):
         f"/runs/{rid}/approval", approver=CONTROLLER, decision="rejected", edits="Fix AR."
     )
     assert rejected.json()["state"] == "rejected"
-    assert post(f"/runs/{rid}/mark-sent").status_code == 409
+    assert claim(rid).status_code == 409
     assert post(f"/runs/{rid}/packet").json()["state"] == "awaiting_approval"  # rebuilt
-    assert post(f"/runs/{rid}/mark-sent").status_code == 409  # the old rejection doesn't count
+    assert claim(rid).status_code == 409  # the old rejection doesn't count
     post(f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved")
-    assert post(f"/runs/{rid}/mark-sent").status_code == 200
+    assert claim(rid).status_code == 200
+    assert mark_sent(rid).status_code == 200
 
 
 def test_cannot_skip_from_asking_to_sent(db):
     run = start()
-    assert post(f"/runs/{run['run_id']}/mark-sent").status_code == 409
+    assert claim(run["run_id"]).status_code == 409
+    assert mark_sent(run["run_id"]).status_code == 409
     assert (
         post(
             f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="approved"
@@ -373,10 +467,10 @@ def test_needs_attention_and_resume(db):
 
 
 def test_sent_run_cannot_need_attention(db):
-    run = to_awaiting_approval()
-    post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="approved")
-    post(f"/runs/{run['run_id']}/mark-sent")
-    assert post(f"/runs/{run['run_id']}/needs-attention", reason="x").status_code == 409
+    rid = approved_run()
+    claim(rid)
+    mark_sent(rid)
+    assert post(f"/runs/{rid}/needs-attention", reason="x").status_code == 409
 
 
 # --- isolation and validation ---------------------------------------------------------------------
@@ -389,7 +483,8 @@ def test_sent_run_cannot_need_attention(db):
         ("responses", {"kpi_id": 1, **REPLY}),
         ("packet", {}),
         ("approval", {"approver": CONTROLLER, "decision": "approved"}),
-        ("mark-sent", {}),
+        ("claim-send", {"idempotency_key": KEY}),
+        ("mark-sent", {"idempotency_key": KEY}),
         ("needs-attention", {"reason": "x"}),
     ],
 )
@@ -444,6 +539,7 @@ def test_no_real_address_reaches_a_recipient_field_when_overridden(db, monkeypat
     responses.append(post(f"/runs/{rid}/packet").json())
     post(f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved")
     responses.append(get_run(rid))
+    responses.append(claim(rid).json())  # the email n8n actually sends
     other = start("2026-08-10")  # a second run, for the alert email
     responses.append(post(f"/runs/{other['run_id']}/needs-attention", reason="test").json())
 
@@ -510,3 +606,116 @@ def test_without_override_emails_go_to_the_real_addresses(db, monkeypatch):
     [msg] = post(f"/runs/{run['run_id']}/observations").json()["messages"]
     assert msg["email"]["to"] == ["avery.chen@brightline.example"]
     assert not msg["email"]["body"].startswith(BANNER)
+
+
+# --- resolving a stuck claim --------------------------------------------------------------------
+
+
+def resolve(rid, resolution, by="controller@ledgerline-cfo.example", note="Checked the inbox."):
+    return post(f"/runs/{rid}/resolve-claim", resolution=resolution, resolved_by=by, note=note)
+
+
+def stuck_claim() -> int:
+    """Approved, claimed, then flagged: the execution died between claim and mark-sent."""
+    rid = approved_run()
+    claim(rid)
+    post(f"/runs/{rid}/needs-attention", reason="WF4: SMTP node timed out")
+    return rid
+
+
+def test_resolve_as_sent_marks_the_run_sent(db):
+    rid = stuck_claim()
+    body = resolve(rid, "sent").json()
+    assert body["state"] == "sent"
+    assert mark_sent(rid).json()["already_sent"] is True  # consistent with a normal send
+    assert claim(rid).status_code == 409  # never sent again
+    row = db.execute(
+        "SELECT resolution, resolved_by, note, claim_key, resolved_at FROM claim_resolutions"
+        " WHERE run_id = %s",
+        (rid,),
+    ).fetchone()
+    assert (row["resolution"], row["resolved_by"], row["claim_key"]) == (
+        "sent",
+        "controller@ledgerline-cfo.example",
+        KEY,
+    )
+    assert row["note"] == "Checked the inbox." and row["resolved_at"] is not None
+    assert events(db, rid)[-1] == ("needs_attention", "sent")
+
+
+def test_resolve_as_not_sent_releases_the_claim(db):
+    rid = stuck_claim()
+    body = resolve(rid, "not_sent").json()
+    assert body["state"] == "awaiting_approval"
+    assert get_run(rid)["send_claimed_at"] is None
+    # A new execution can now claim and send, exactly once.
+    assert claim(rid, key="n8n-execution-3003").status_code == 200
+    assert mark_sent(rid, key="n8n-execution-3003").json()["state"] == "sent"
+
+
+def test_resolve_not_sent_without_needs_attention(db):
+    # Claimed but not flagged yet: releasing keeps the run awaiting approval.
+    rid = approved_run()
+    claim(rid)
+    assert resolve(rid, "not_sent").json()["state"] == "awaiting_approval"
+    assert claim(rid, key="n8n-execution-4004").status_code == 200
+
+
+def test_resolve_without_a_claim_is_409(db):
+    rid = approved_run()
+    resp = resolve(rid, "sent")
+    assert resp.status_code == 409 and "no send claim" in resp.json()["detail"]
+
+
+def test_resolve_on_a_sent_run_is_409(db):
+    rid = approved_run()
+    claim(rid)
+    mark_sent(rid)
+    assert resolve(rid, "not_sent").status_code == 409
+
+
+@pytest.mark.parametrize(
+    "resolution, by", [("maybe", "x@y.example"), ("sent", ""), ("sent", "   ")]
+)
+def test_resolve_validates_its_input(db, resolution, by):
+    rid = stuck_claim()
+    assert resolve(rid, resolution, by=by).status_code == 422
+
+
+def test_needs_attention_alert_explains_how_to_resolve_a_claim(db):
+    rid = approved_run()
+    claim(rid)
+    alert = post(f"/runs/{rid}/needs-attention", reason="WF4: SMTP node timed out").json()[
+        "alert_email"
+    ]
+    assert f"/runs/{rid}/resolve-claim" in alert["body"]
+    assert '"sent"' in alert["body"] and '"not_sent"' in alert["body"]
+
+
+def test_alert_without_a_claim_has_no_resolve_instructions(db):
+    run = start()
+    alert = post(f"/runs/{run['run_id']}/needs-attention", reason="x").json()["alert_email"]
+    assert "resolve-claim" not in alert["body"]
+
+
+def test_status_shows_sending_while_claimed(db):
+    rid = approved_run()
+    assert get_run(rid)["status"] == "awaiting_approval"
+    claim(rid)
+    got = get_run(rid)
+    assert (got["state"], got["status"]) == ("awaiting_approval", "sending")
+    assert got["send_claimed_at"] is not None
+    mark_sent(rid)
+    assert get_run(rid)["status"] == "sent"
+
+
+def test_resolve_claim_of_another_client_is_404(db):
+    northgate_run = start(WEEK_5, client_id="northgate")["run_id"]
+    resp = post(
+        f"/runs/{northgate_run}/resolve-claim",
+        client_id="brightline",
+        resolution="sent",
+        resolved_by="x@y.example",
+        note="Checked.",  # valid input, so the 404 comes from isolation, not validation
+    )
+    assert resp.status_code == 404

@@ -4,11 +4,16 @@
                                      ^             |
                                      +- rejected <-+
     any open state -> needs_attention -> asking | assembling
+    needs_attention -> sent | awaiting_approval   (only via resolve_claim)
 
 Every state change goes through move(): it checks the transition is allowed,
 locks the run row so two requests can't race, and appends to run_events.
 Nothing is sent without an approval of the current packet version (checked
 here and by a database trigger, rule 4).
+
+Sending is claimed first (claim_send): one idempotency key per run, so a
+retried n8n execution can't email twice. Once claimed, a run only moves to
+sent (or needs_attention for a person to check): at most once, never twice.
 """
 
 from collections.abc import Callable
@@ -27,7 +32,9 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     "assembling": frozenset({"awaiting_approval", "needs_attention"}),
     "awaiting_approval": frozenset({"sent", "rejected", "needs_attention"}),
     "rejected": frozenset({"assembling", "needs_attention"}),
-    "needs_attention": frozenset({"asking", "assembling"}),
+    # sent / awaiting_approval only via resolve_claim, which requires an approved,
+    # claimed packet: a person confirms whether a stuck send went out.
+    "needs_attention": frozenset({"asking", "assembling", "sent", "awaiting_approval"}),
     "sent": frozenset(),  # final
 }
 
@@ -72,7 +79,8 @@ def _require_state(run: dict, allowed: set[str], step: str) -> None:
 def get_run(conn: psycopg.Connection, client_id: str, run_id: int, lock: bool = False) -> dict:
     """The run, optionally locked (FOR UPDATE) until the transaction ends."""
     row = conn.execute(
-        "SELECT id, client_id, week_start, state, packet_md, packet_version FROM weekly_runs"
+        "SELECT id, client_id, week_start, state, packet_md, packet_version,"
+        " send_claim_key, send_claimed_at, send_claim_version FROM weekly_runs"
         " WHERE id = %s AND client_id = %s" + (" FOR UPDATE" if lock else ""),
         (run_id, client_id),
     ).fetchone()
@@ -229,6 +237,11 @@ def describe(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
         "client_id": client_id,
         "week_start": run["week_start"],
         "state": run["state"],
+        # Derived: a claimed send that isn't marked sent yet is in flight (or stuck).
+        "status": "sending"
+        if run["send_claim_key"] is not None and run["state"] != "sent"
+        else run["state"],
+        "send_claimed_at": run["send_claimed_at"],
         "packet_md": run["packet_md"],
         "packet_version": run["packet_version"],
         "approved": approved,
@@ -391,6 +404,7 @@ def build_packet(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
     """
     run = get_run(conn, client_id, run_id, lock=True)
     _require_state(run, PACKET_STATES, "build the packet")
+    _refuse_if_claimed(run, "rebuild the packet")
     move(conn, run, "assembling")
 
     ctx = service.run_context(conn, client_id, run_id)
@@ -458,6 +472,7 @@ def record_approval(
     if approver.strip().lower() not in {controller.lower(), email.recipient(controller).lower()}:
         raise Forbidden("only the client's Controller can approve or reject the packet")
     approver = controller  # record the real address, not an alias
+    _refuse_if_claimed(run, "record an approval")
     if _approved(conn, run):
         raise Conflict("this packet version is already approved")
     row = conn.execute(
@@ -470,13 +485,76 @@ def record_approval(
     return {"approval_id": row["id"], "run_id": run_id, "state": run["state"]}
 
 
-def mark_sent(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
+def _refuse_if_claimed(run: dict, step: str) -> None:
+    if run["send_claim_key"] is not None:
+        raise Conflict(
+            f"cannot {step}: the send was claimed at {run['send_claimed_at']}, so the packet "
+            "may already be out; a person must check the leadership inbox first"
+        )
+
+
+def _packet_email(conn: psycopg.Connection, run: dict) -> dict:
+    c = conn.execute(
+        "SELECT name, leadership_emails FROM clients WHERE id = %s", (run["client_id"],)
+    ).fetchone()
+    week = packet.week_label(run["week_start"])
+    return email.compose(
+        c["leadership_emails"], f"KPI packet: {c['name']}, week of {week}", run["packet_md"]
+    )
+
+
+def claim_send(conn: psycopg.Connection, client_id: str, run_id: int, key: str) -> dict:
+    """Claim the right to email the approved packet, before sending it.
+
+    The first claim stores `key` (the n8n execution id). The same key again
+    (a retried request) gets the same claim back; any other key is refused.
+    """
     run = get_run(conn, client_id, run_id, lock=True)
+    if run["state"] == "sent":
+        raise Conflict("the packet was already sent; it must not be sent again")
+    _require_state(run, {"awaiting_approval"}, "claim the send")
+    if not _approved(conn, run):
+        raise Conflict("the current packet version has no approved approval")
+    repeated = run["send_claim_key"] is not None
+    if repeated and run["send_claim_key"] != key:
+        raise Conflict(
+            f"the send was already claimed at {run['send_claimed_at']} by another execution"
+        )
+    if not repeated:
+        row = conn.execute(
+            "UPDATE weekly_runs SET send_claim_key = %s, send_claimed_at = clock_timestamp(),"
+            " send_claim_version = packet_version WHERE id = %s AND client_id = %s"
+            " RETURNING send_claimed_at",
+            (key, run_id, client_id),
+        ).fetchone()
+        run["send_claimed_at"] = row["send_claimed_at"]
+    return {
+        "run_id": run_id,
+        "client_id": client_id,
+        "claimed": True,
+        "repeated": repeated,
+        "claimed_at": run["send_claimed_at"],
+        "packet_version": run["packet_version"],
+        "packet_email": _packet_email(conn, run),
+    }
+
+
+def mark_sent(conn: psycopg.Connection, client_id: str, run_id: int, key: str) -> dict:
+    """Record that the packet went out. Safe to retry: an already-sent run is a success."""
+    run = get_run(conn, client_id, run_id, lock=True)
+    if run["state"] == "sent":
+        return {"run_id": run_id, "client_id": client_id, "state": "sent", "already_sent": True}
     _require_state(run, {"awaiting_approval"}, "mark the packet sent")
     if not _approved(conn, run):
         raise Conflict("the current packet version has no approved approval")
+    if run["send_claim_key"] is None:
+        raise Conflict(
+            "claim the send first (POST /runs/{id}/claim-send), then email, then mark sent"
+        )
+    if run["send_claim_key"] != key or run["send_claim_version"] != run["packet_version"]:
+        raise Conflict("the send was claimed by another execution")
     move(conn, run, "sent")
-    return {"run_id": run_id, "client_id": client_id, "state": run["state"]}
+    return {"run_id": run_id, "client_id": client_id, "state": "sent", "already_sent": False}
 
 
 def needs_attention(conn: psycopg.Connection, client_id: str, run_id: int, reason: str) -> dict:
@@ -486,10 +564,66 @@ def needs_attention(conn: psycopg.Connection, client_id: str, run_id: int, reaso
         "SELECT name, controller_email FROM clients WHERE id = %s", (client_id,)
     ).fetchone()
     week = packet.week_label(run["week_start"])
-    alert = email.compose(
-        [c["controller_email"]],
-        f"Needs attention: {c['name']}, week of {week}",
+    body = (
         f"The weekly KPI run for {c['name']} (week of {week}, run {run_id}) needs attention."
-        f"\n\nReason: {reason}",
+        f"\n\nReason: {reason}"
+    )
+    if run["send_claim_key"] is not None:
+        body += (
+            f"\n\nThe packet send was claimed at {run['send_claimed_at']} but never marked "
+            "sent, so it may or may not have gone out. Check the leadership inbox, then "
+            f"resolve it with POST /runs/{run_id}/resolve-claim and the body\n"
+            f'  {{"client_id": "{client_id}", "resolution": "sent" or "not_sent", '
+            '"resolved_by": "<your email>", "note": "<what you checked>"}\n'
+            '"sent" marks the run sent; "not_sent" releases the claim so it can be sent again.'
+        )
+    alert = email.compose(
+        [c["controller_email"]], f"Needs attention: {c['name']}, week of {week}", body
     )
     return {"run_id": run_id, "client_id": client_id, "state": run["state"], "alert_email": alert}
+
+
+def resolve_claim(
+    conn: psycopg.Connection,
+    client_id: str,
+    run_id: int,
+    resolution: str,
+    resolved_by: str,
+    note: str | None,
+) -> dict:
+    """A person settles a stuck send claim, after checking the leadership inbox.
+
+    "sent": the packet went out, so the run becomes sent. "not_sent": it didn't,
+    so the claim is released and the run is awaiting_approval again, ready to be
+    claimed by a new execution. Recorded in claim_resolutions (append-only).
+    """
+    run = get_run(conn, client_id, run_id, lock=True)
+    if run["state"] == "sent":
+        raise Conflict("the run is already sent; there is no claim to resolve")
+    if run["send_claim_key"] is None:
+        raise Conflict("there is no send claim to resolve")
+    _require_state(run, {"awaiting_approval", "needs_attention"}, "resolve the claim")
+    if not _approved(conn, run):
+        raise Conflict("the current packet version has no approved approval")
+    conn.execute(
+        "INSERT INTO claim_resolutions (run_id, resolution, resolved_by, note, claim_key)"
+        " VALUES (%s, %s, %s, %s, %s)",
+        (run_id, resolution, resolved_by, note, run["send_claim_key"]),
+    )
+    note_text = f"claim resolved as {resolution} by {resolved_by}"
+    if resolution == "sent":
+        move(conn, run, "sent", note=note_text)
+    else:
+        conn.execute(
+            "UPDATE weekly_runs SET send_claim_key = NULL, send_claimed_at = NULL,"
+            " send_claim_version = NULL WHERE id = %s AND client_id = %s",
+            (run_id, client_id),
+        )
+        if run["state"] == "needs_attention":
+            move(conn, run, "awaiting_approval", note=note_text)
+    return {
+        "run_id": run_id,
+        "client_id": client_id,
+        "state": run["state"],
+        "resolution": resolution,
+    }

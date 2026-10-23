@@ -46,6 +46,12 @@ def test_needs_attention_can_resume():
     validate_transition("needs_attention", "assembling")
 
 
+def test_a_stuck_claim_can_be_resolved_from_needs_attention():
+    # Only reachable through resolve-claim (which checks the claim and approval).
+    validate_transition("needs_attention", "sent")
+    validate_transition("needs_attention", "awaiting_approval")
+
+
 def test_every_state_in_the_schema_is_covered():
     # Same list as the CHECK constraint on weekly_runs.state.
     assert set(TRANSITIONS) == {
