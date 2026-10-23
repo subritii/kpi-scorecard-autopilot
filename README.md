@@ -4,7 +4,8 @@
 assembled automatically, explained by the people responsible, and sent only
 after a human approves it.**
 
-**Demo video (2 min):** _coming soon_ <!-- replace with the video link -->
+**Demo video (2 min):** _coming soon_ <!-- replace with the video link -->  
+**Project page:** _coming soon_ <!-- replace with the GitHub Pages link (docs/index.html) -->
 
 Every week, a fractional CFO firm has to tell each client's leadership how the
 business did: which numbers are off target, why, and what is being done about
@@ -157,6 +158,22 @@ for a week so it can start over (dev only; dry run by default; refuses if
 python scripts/reset_demo_week.py --client brightline --week 2026-08-03        # shows what it would delete
 python scripts/reset_demo_week.py --client brightline --week 2026-08-03 --yes  # deletes
 ```
+
+## Landing page
+
+`docs/index.html` is a one-page, self-contained summary of the project
+(served by GitHub Pages from `/docs`). It is built from saved output of the
+real API code, never from live calls:
+
+```bash
+python scripts/capture_demo_data.py   # dry run on the TEST database, rolled back
+                                      # -> data/demo/example_week.json (links scrubbed,
+                                      #    fictional .example recipients only)
+python scripts/build_demo_site.py     # -> docs/index.html (no external requests)
+```
+
+Set `VIDEO_URL`, `GITHUB_URL` and `LINKEDIN_URL` at the top of
+`scripts/build_demo_site.py`, then rebuild.
 
 ## Design notes
 

@@ -6,3 +6,8 @@ select = ["E", "F", "I", "B", "UP"]
 
 [lint.isort]
 known-first-party = ["app"]
+
+[lint.per-file-ignores]
+# The landing page's HTML/CSS template and SVG icons live in this file as
+# strings; wrapping them at 100 characters would make them harder to read.
+"scripts/build_demo_site.py" = ["E501"]

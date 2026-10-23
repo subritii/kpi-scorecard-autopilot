@@ -1,0 +1,187 @@
+{
+  "captured_on": "2026-10-23",
+  "models": {
+    "chat": "llama3.2:3b",
+    "embeddings": "ollama/nomic-embed-text"
+  },
+  "brightline": {
+    "client_name": "Brightline Services",
+    "week_label": "Aug 3, 2026",
+    "kpis": [
+      {
+        "name": "Weekly Revenue",
+        "formula_key": "weekly_revenue",
+        "value": "173769.50",
+        "prior": "$174,408.81",
+        "target": "$155,000.00",
+        "direction": "higher",
+        "status": "green"
+      },
+      {
+        "name": "Gross Margin %",
+        "formula_key": "gross_margin_pct",
+        "value": "47.0",
+        "prior": "48.3%",
+        "target": "42.0%",
+        "direction": "higher",
+        "status": "green"
+      },
+      {
+        "name": "Cash on Hand",
+        "formula_key": "cash_on_hand",
+        "value": "548601.43",
+        "prior": "$522,726.94",
+        "target": "$400,000.00",
+        "direction": "higher",
+        "status": "green"
+      },
+      {
+        "name": "AR Over 60 Days",
+        "formula_key": "ar_over_60",
+        "value": "114983.12",
+        "prior": "$57,234.06",
+        "target": "$90,000.00",
+        "direction": "lower",
+        "status": "red"
+      },
+      {
+        "name": "New Bookings",
+        "formula_key": "new_bookings",
+        "value": "194377.78",
+        "prior": "$197,024.35",
+        "target": "$170,000.00",
+        "direction": "higher",
+        "status": "green"
+      }
+    ],
+    "red_kpi": {
+      "name": "AR Over 60 Days",
+      "owner_name": "Avery Chen",
+      "owner_email": "avery.chen@brightline.example"
+    },
+    "net_change": "+$57,749.06",
+    "drivers": [
+      {
+        "name": "Ambercrest Logistics",
+        "change": "+$32,743.28",
+        "share": "54.1%"
+      },
+      {
+        "name": "Larkspur Clinics",
+        "change": "+$26,156.71",
+        "share": "43.2%"
+      },
+      {
+        "name": "Orchard Vale Architects",
+        "change": "-$628.60",
+        "share": "1.0%"
+      }
+    ],
+    "owner_email": {
+      "to": [
+        "avery.chen@brightline.example"
+      ],
+      "subject": "Week of Aug 3, 2026: AR Over 60 Days needs your input",
+      "body": "Hi Avery,\n\nThe KPI AR Over 60 Days moved from $57,234.06 to $114,983.12.\n\nThe change was driven by Ambercrest Logistics and Larkspur Clinics, with Ambercrest Logistics contributing the largest share of the movement. Orchard Vale Architects had a minor decrease.\n\nPlease reply with:\n1. What changed?\n2. Why did it change?\n3. Who owns the fix?\n4. What's being done?\n\nReply using this form (the link works once):\nhttp://localhost:8000/reply?token=…\n\nFor reference, last year's explanation of a similar move (week of Aug 4, 2025):\n> What changed: AR over 60 days rose well above target for three weeks, then eased back as the balances were paid down. Why: Ambercrest Logistics and Mosswood Hospitality held payments while moving to a new AP system. Owner of fix: Avery Chen. Actions: weekly calls with both AP teams; one paid in full, the other in two installments."
+    },
+    "observation": "The KPI AR Over 60 Days moved from $57,234.06 to $114,983.12.\n\nThe change was driven by Ambercrest Logistics and Larkspur Clinics, with Ambercrest Logistics contributing the largest share of the movement. Orchard Vale Architects had a minor decrease.",
+    "observation_source": "llm",
+    "past_explanation_doc_key": "past_explanation:ar_over_60:2025-08-04",
+    "reply": {
+      "what_changed": "Two customers moved past 60 days: Ambercrest Logistics and Larkspur Clinics.",
+      "why": "Both switched to new AP systems in July and our invoices got stuck in their approval queues.",
+      "owner_of_fix": "Avery Chen",
+      "actions": "Called both AP teams this week; Ambercrest confirmed payment for Aug 14 and Larkspur for Aug 21. Weekly check-in until both clear."
+    },
+    "packet_html": "<div style=\"font-family:system-ui,sans-serif;color:#1b1b1b;line-height:1.5\"><h1>KPI packet: Brightline Services, week of Aug 3, 2026</h1><table style=\"border-collapse:collapse\"><tr><th style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">KPI</th><th style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">This week</th><th style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">Last week</th><th style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">Change</th><th style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">Target</th><th style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">Status</th></tr><tr><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">Weekly Revenue</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$173,769.50</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$174,408.81</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">-$639.31</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$155,000.00</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600\">green</td></tr><tr><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">Gross Margin %</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">47.0%</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">48.3%</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">-1.3 points</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">42.0%</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600\">green</td></tr><tr><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">Cash on Hand</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$548,601.43</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$522,726.94</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">+$25,874.49</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$400,000.00</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600\">green</td></tr><tr><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">AR Over 60 Days</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$114,983.12</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$57,234.06</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">+$57,749.06</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$90,000.00</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#ffd6d6;color:#7a0000;font-weight:600\">red</td></tr><tr><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">New Bookings</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$194,377.78</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$197,024.35</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">-$2,646.57</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left\">$170,000.00</td><td style=\"padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600\">green</td></tr></table><h2>AR Over 60 Days (red)</h2><p>For the week of Aug 3, 2026, AR Over 60 Days rose to $114,983.12 from $57,234.06, a change of +$57,749.06, against a target of $90,000.00. The largest movers were Ambercrest Logistics (+$32,743.28, 54.1% of the movement), Larkspur Clinics (+$26,156.71, 43.2% of the movement) and Orchard Vale Architects (-$628.60, 1.0% of the movement).</p><p><strong>Reply from Avery Chen:</strong></p><dl><dt><strong>What changed?</strong></dt><dd style=\"margin:0 0 .75rem 1rem\">Two customers moved past 60 days: Ambercrest Logistics and Larkspur Clinics.</dd><dt><strong>Why did it change?</strong></dt><dd style=\"margin:0 0 .75rem 1rem\">Both switched to new AP systems in July and our invoices got stuck in their approval queues.</dd><dt><strong>Who owns the fix?</strong></dt><dd style=\"margin:0 0 .75rem 1rem\">Avery Chen</dd><dt><strong>What&#x27;s being done?</strong></dt><dd style=\"margin:0 0 .75rem 1rem\">Called both AP teams this week; Ambercrest confirmed payment for Aug 14 and Larkspur for Aug 21. Weekly check-in until both clear.</dd></dl></div>",
+    "packet_passed_check": true,
+    "approval": {
+      "approver": "controller@ledgerline-cfo.example",
+      "decided_at": "2026-10-23 16:56 UTC"
+    },
+    "packet_email": {
+      "to": [
+        "ceo@brightline.example",
+        "coo@brightline.example"
+      ],
+      "subject": "KPI packet: Brightline Services, week of Aug 3, 2026"
+    },
+    "clickup_task": {
+      "name": "Brightline Services: week of Aug 3, 2026 packet sent",
+      "description": "The weekly KPI packet for Brightline Services (week of Aug 3, 2026) was sent to leadership.\n\nApproved by: controller@ledgerline-cfo.example\nApproved at: 2026-10-23 16:56 UTC\nSent at: 2026-10-23 16:56 UTC\nSent to: ceo@brightline.example, coo@brightline.example\nPacket version: 1\nRun: 1874"
+    }
+  },
+  "northgate": {
+    "client_name": "Northgate Supply",
+    "week_label": "Aug 3, 2026",
+    "kpis": [
+      {
+        "name": "Weekly Revenue",
+        "formula_key": "weekly_revenue",
+        "value": "254507.27",
+        "prior": "$253,217.89",
+        "target": "$230,000.00",
+        "direction": "higher",
+        "status": "green"
+      },
+      {
+        "name": "Gross Margin %",
+        "formula_key": "gross_margin_pct",
+        "value": "31.3",
+        "prior": "30.6%",
+        "target": "28.0%",
+        "direction": "higher",
+        "status": "green"
+      },
+      {
+        "name": "Cash on Hand",
+        "formula_key": "cash_on_hand",
+        "value": "801457.76",
+        "prior": "$806,268.02",
+        "target": "$600,000.00",
+        "direction": "higher",
+        "status": "green"
+      },
+      {
+        "name": "AR Over 60 Days",
+        "formula_key": "ar_over_60",
+        "value": "98073.41",
+        "prior": "$96,029.10",
+        "target": "$150,000.00",
+        "direction": "lower",
+        "status": "green"
+      },
+      {
+        "name": "Inventory Days",
+        "formula_key": "inventory_days",
+        "value": "38.3",
+        "prior": "37.4 days",
+        "target": "45.0 days",
+        "direction": "lower",
+        "status": "green"
+      }
+    ],
+    "red_count": 0
+  },
+  "sandbox": {
+    "client_name": "Sandbox Co",
+    "week_label": "Oct 19, 2026",
+    "kpis": [
+      {
+        "name": "AR Over 60 Days",
+        "formula_key": "ar_over_60",
+        "value": "156.00",
+        "prior": "no data",
+        "target": "$5,000.00",
+        "direction": "lower",
+        "status": "green"
+      }
+    ],
+    "as_of": "2026-10-22",
+    "customers": 16,
+    "totals": {
+      "ar_61_90": "156.00",
+      "ar_90_plus": "0.00"
+    }
+  }
+}
