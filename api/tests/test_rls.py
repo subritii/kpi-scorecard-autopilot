@@ -25,6 +25,7 @@ RLS_TABLES = [
     "approvals",
     "doc_chunks",
     "source_loads",
+    "run_events",
 ]
 
 
@@ -147,6 +148,8 @@ OWNER_SQL = {
     " LEFT JOIN weekly_runs r ON r.id = a.run_id",
     "doc_chunks": "SELECT client_id AS owner FROM doc_chunks",
     "source_loads": "SELECT client_id AS owner FROM source_loads",
+    "run_events": "SELECT r.client_id AS owner FROM run_events e"
+    " LEFT JOIN weekly_runs r ON r.id = e.run_id",
 }
 
 
@@ -177,6 +180,7 @@ def seeded(conn):
             "INSERT INTO approvals (run_id, approver, decision) VALUES (%s, 'x', 'approved')",
             (run,),
         )
+        conn.execute("INSERT INTO run_events (run_id, to_state) VALUES (%s, 'collecting')", (run,))
         conn.execute(
             "INSERT INTO doc_chunks (client_id, doc_key, kpi_id, source_type, text)"
             " VALUES (%s, 'note:rls_test:undated', %s, 'note', 'x')",
@@ -268,8 +272,11 @@ def test_run_cannot_be_sent_without_approval(conn):
     with pytest.raises(psycopg.errors.RaiseException):
         with conn.transaction():
             conn.execute("UPDATE weekly_runs SET state = 'sent' WHERE id = %s", (run,))
+    # The approval must be for the run's current packet version (0 for a new run).
     conn.execute(
-        "INSERT INTO approvals (run_id, approver, decision) VALUES (%s, 'x', 'approved')", (run,)
+        "INSERT INTO approvals (run_id, approver, decision, packet_version)"
+        " VALUES (%s, 'x', 'approved', 0)",
+        (run,),
     )
     conn.execute("UPDATE weekly_runs SET state = 'sent' WHERE id = %s", (run,))
 

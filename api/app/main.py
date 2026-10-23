@@ -9,14 +9,14 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import date
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app import faithfulness, retrieval, service
+from app import faithfulness, retrieval, runs, service
 from app.db import client_connection
 from app.llm import get_provider
 from app.llm.base import LLMConfigError, LLMError, LLMProvider
@@ -30,6 +30,22 @@ def llm_error(request: Request, exc: LLMError) -> JSONResponse:
     # Messages never contain secrets (see app/llm/base.py).
     status = 500 if isinstance(exc, LLMConfigError) else 502
     return JSONResponse(status_code=status, content={"detail": str(exc)})
+
+
+@app.exception_handler(runs.RunNotFound)
+def run_not_found(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(runs.Conflict)
+def run_conflict(request: Request, exc: Exception) -> JSONResponse:
+    # Includes InvalidTransition: the run's state doesn't allow this step.
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(runs.Forbidden)
+def run_forbidden(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
 
 
 @app.exception_handler(retrieval.RetrievalConfigError)
@@ -294,3 +310,97 @@ def check_faithfulness(req: FaithfulnessRequest, connect: Connect):
             for p in result.problems
         ],
     }
+
+
+# --- run lifecycle (called by n8n; n8n never touches the database or the LLM) --------
+
+
+class ClientRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    client_id: str = Field(min_length=1)
+
+
+class NonBlank(BaseModel):
+    @field_validator("*", mode="after")
+    @classmethod
+    def not_blank(cls, v):
+        if isinstance(v, str) and not v.strip():
+            raise ValueError("must not be blank")
+        return v
+
+
+class ResponseRequest(ClientRequest, NonBlank):
+    kpi_id: int
+    what_changed: str = Field(min_length=1)
+    why: str = Field(min_length=1)
+    owner_of_fix: str = Field(min_length=1)
+    actions: str = Field(min_length=1)
+
+
+class ApprovalRequest(ClientRequest, NonBlank):
+    approver: str = Field(min_length=1)  # must be the client's Controller
+    decision: Literal["approved", "rejected"]
+    edits: str | None = None  # the Controller's notes; the packet itself is not edited
+
+
+class AttentionRequest(ClientRequest, NonBlank):
+    reason: str = Field(min_length=1)
+
+
+@app.post("/runs/start")
+def runs_start(req: WeekRequest, connect: Connect):
+    """Compute the week, create its run (collecting -> asking), return the red KPIs."""
+    with connect(req.client_id) as conn:
+        return service.as_json(runs.start(conn, req.client_id, req.week_start))
+
+
+@app.get("/runs/{run_id}")
+def runs_get(run_id: int, client_id: str, connect: Connect):
+    """State, packet, recipients, approval and unanswered KPIs, for n8n."""
+    with connect(client_id) as conn:
+        return service.as_json(runs.describe(conn, client_id, run_id))
+
+
+@app.post("/runs/{run_id}/observations")
+def runs_observations(run_id: int, req: ClientRequest, connect: Connect, llm: LLM):
+    """An owner message per red KPI: LLM observation (checked, one retry) or template."""
+    return service.as_json(runs.observations(connect, llm, req.client_id, run_id))
+
+
+@app.post("/runs/{run_id}/responses")
+def runs_responses(run_id: int, req: ResponseRequest, connect: Connect):
+    """Save an owner's reply, verbatim."""
+    reply = req.model_dump(exclude={"client_id"})
+    with connect(req.client_id) as conn:
+        return runs.save_response(conn, req.client_id, run_id, reply)
+
+
+@app.post("/runs/{run_id}/packet")
+def runs_packet(run_id: int, req: ClientRequest, connect: Connect):
+    """Assemble and check the packet; awaiting_approval if it passes."""
+    with connect(req.client_id) as conn:
+        return service.as_json(runs.build_packet(conn, req.client_id, run_id))
+
+
+@app.post("/runs/{run_id}/approval")
+def runs_approval(run_id: int, req: ApprovalRequest, connect: Connect):
+    """Record the Controller's decision on the current packet version (insert-only)."""
+    with connect(req.client_id) as conn:
+        return runs.record_approval(
+            conn, req.client_id, run_id, req.approver, req.decision, req.edits
+        )
+
+
+@app.post("/runs/{run_id}/mark-sent")
+def runs_mark_sent(run_id: int, req: ClientRequest, connect: Connect):
+    """Mark the run sent. 409 unless the current packet version is approved."""
+    with connect(req.client_id) as conn:
+        return runs.mark_sent(conn, req.client_id, run_id)
+
+
+@app.post("/runs/{run_id}/needs-attention")
+def runs_needs_attention(run_id: int, req: AttentionRequest, connect: Connect):
+    """Flag the run for a human (WF6 error handler), with the reason logged."""
+    with connect(req.client_id) as conn:
+        return runs.needs_attention(conn, req.client_id, run_id, req.reason)

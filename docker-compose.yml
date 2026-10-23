@@ -20,7 +20,10 @@ services:
       retries: 10
 
   api:
-    build: ./api
+    # Repo root as build context, so the image can include prompts/.
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     env_file: .env
     environment:
       # Inside the compose network the database host is the service name, not localhost.

@@ -19,16 +19,19 @@ class FakeProvider(LLMProvider):
         self,
         embedding_dim: int,
         fixed: dict[str, list[float]] | None = None,
-        completion: str = "(fake completion)",
+        completion: str | list[str] = "(fake completion)",
     ):
         super().__init__(embedding_dim)
         self.fixed = fixed or {}  # exact text -> vector, for tests that need precise control
+        # A list is consumed in order (the last reply repeats), to script retries.
         self.completion = completion
         self.embedding_model = "fake/hashed-words"
         self.calls: list[dict] = []  # every complete() call, for assertions
 
     def complete(self, prompt: str, *, system: str | None = None) -> str:
         self.calls.append({"prompt": prompt, "system": system})
+        if isinstance(self.completion, list):
+            return self.completion.pop(0) if len(self.completion) > 1 else self.completion[0]
         return self.completion
 
     def _embed(self, texts: list[str], purpose: Purpose) -> list[list[float]]:

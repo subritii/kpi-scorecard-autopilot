@@ -296,7 +296,8 @@ def _is_sentence_start(masked: str, pos: int) -> bool:
     i = pos - 1
     while i >= 0 and masked[i] in " \t*_#>`\"'(-•":
         i -= 1
-    return i < 0 or masked[i] in ".!?:;\n"
+    # "|" starts a Markdown table cell, so a capitalized first word there is normal.
+    return i < 0 or masked[i] in ".!?:;|\n"
 
 
 def _value_pools(k: KpiContext) -> dict[str, list[tuple[Decimal, bool]]]:
