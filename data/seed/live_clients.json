@@ -1,0 +1,26 @@
+[
+  {
+    "client": {
+      "id": "sandbox_co",
+      "name": "Sandbox Co",
+      "controller_email": "controller@ledgerline-cfo.example",
+      "leadership_emails": ["ceo@sandbox-co.example"],
+      "clickup_list_id": null,
+      "qbo_realm_id_env": "QBO_REALM_ID"
+    },
+    "kpi_definitions": [
+      {
+        "client_id": "sandbox_co",
+        "name": "AR Over 60 Days",
+        "definition": "Accounts receivable more than 60 days past invoice date (61-90 and 90+ aging buckets), from the QuickBooks sandbox.",
+        "owner_name": "Riley Novak",
+        "owner_email": "riley.novak@sandbox-co.example",
+        "source": "quickbooks",
+        "formula_key": "ar_over_60",
+        "target": 5000,
+        "direction": "lower",
+        "yellow_band_pct": 5
+      }
+    ]
+  }
+]

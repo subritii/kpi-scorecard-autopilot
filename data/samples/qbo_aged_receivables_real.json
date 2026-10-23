@@ -1,0 +1,685 @@
+[
+  {
+    "Header": {
+      "Time": "2026-10-22T22:18:46-07:00",
+      "ReportName": "AgedReceivables",
+      "DateMacro": "today",
+      "StartPeriod": "2026-10-22",
+      "EndPeriod": "2026-10-22",
+      "SummarizeColumnsBy": "Total",
+      "Currency": "USD",
+      "Option": [
+        {
+          "Name": "report_date",
+          "Value": "2026-10-22"
+        },
+        {
+          "Name": "NoReportData",
+          "Value": "false"
+        }
+      ]
+    },
+    "Columns": {
+      "Column": [
+        {
+          "ColTitle": "",
+          "ColType": "Customer"
+        },
+        {
+          "ColTitle": "Current",
+          "ColType": "Money",
+          "MetaData": [
+            {
+              "Name": "ColKey",
+              "Value": "current"
+            }
+          ]
+        },
+        {
+          "ColTitle": "1 - 30",
+          "ColType": "Money",
+          "MetaData": [
+            {
+              "Name": "ColKey",
+              "Value": "0"
+            }
+          ]
+        },
+        {
+          "ColTitle": "31 - 60",
+          "ColType": "Money",
+          "MetaData": [
+            {
+              "Name": "ColKey",
+              "Value": "1"
+            }
+          ]
+        },
+        {
+          "ColTitle": "61 - 90",
+          "ColType": "Money",
+          "MetaData": [
+            {
+              "Name": "ColKey",
+              "Value": "2"
+            }
+          ]
+        },
+        {
+          "ColTitle": "91 and over",
+          "ColType": "Money",
+          "MetaData": [
+            {
+              "Name": "ColKey",
+              "Value": "3"
+            }
+          ]
+        },
+        {
+          "ColTitle": "Total",
+          "ColType": "Money",
+          "MetaData": [
+            {
+              "Name": "ColKey",
+              "Value": "total"
+            }
+          ]
+        }
+      ]
+    },
+    "Rows": {
+      "Row": [
+        {
+          "ColData": [
+            {
+              "value": "Amy's Bird Sanctuary",
+              "id": "1"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "239.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "239.00"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Bill's Windsurf Shop",
+              "id": "2"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "85.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "85.00"
+            }
+          ]
+        },
+        {
+          "Header": {
+            "ColData": [
+              {
+                "value": "Freeman Sporting Goods",
+                "id": "7"
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": "0.00"
+              }
+            ]
+          },
+          "Rows": {
+            "Row": [
+              {
+                "ColData": [
+                  {
+                    "value": "0969 Ocean View Road",
+                    "id": "8"
+                  },
+                  {
+                    "value": "477.50"
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": "477.50"
+                  }
+                ],
+                "type": "Data"
+              },
+              {
+                "ColData": [
+                  {
+                    "value": "55 Twin Lane",
+                    "id": "9"
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": "4.00"
+                  },
+                  {
+                    "value": "81.00"
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": "85.00"
+                  }
+                ],
+                "type": "Data"
+              }
+            ]
+          },
+          "Summary": {
+            "ColData": [
+              {
+                "value": "Total Freeman Sporting Goods"
+              },
+              {
+                "value": "477.50"
+              },
+              {
+                "value": "4.00"
+              },
+              {
+                "value": "81.00"
+              },
+              {
+                "value": "0.00"
+              },
+              {
+                "value": "0.00"
+              },
+              {
+                "value": "562.50"
+              }
+            ]
+          },
+          "type": "Section"
+        },
+        {
+          "ColData": [
+            {
+              "value": "Geeta Kalapatapu",
+              "id": "10"
+            },
+            {
+              "value": "629.10"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "629.10"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Jeff's Jalopies",
+              "id": "12"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "81.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "81.00"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "John Melton",
+              "id": "13"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "450.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "450.00"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Kookies by Kathy",
+              "id": "16"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "75.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "75.00"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Mark Cho",
+              "id": "17"
+            },
+            {
+              "value": "314.28"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "314.28"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Paulsen Medical Supplies",
+              "id": "18"
+            },
+            {
+              "value": "954.75"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "954.75"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Red Rock Diner",
+              "id": "20"
+            },
+            {
+              "value": "70.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "156.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "226.00"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Rondonuwu Fruit and Vegi",
+              "id": "21"
+            },
+            {
+              "value": "78.60"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "78.60"
+            }
+          ]
+        },
+        {
+          "Header": {
+            "ColData": [
+              {
+                "value": "Shara Barnett",
+                "id": "22"
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": ""
+              },
+              {
+                "value": "0.00"
+              }
+            ]
+          },
+          "Rows": {
+            "Row": [
+              {
+                "ColData": [
+                  {
+                    "value": "Barnett Design",
+                    "id": "23"
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": "274.50"
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": ""
+                  },
+                  {
+                    "value": "274.50"
+                  }
+                ],
+                "type": "Data"
+              }
+            ]
+          },
+          "Summary": {
+            "ColData": [
+              {
+                "value": "Total Shara Barnett"
+              },
+              {
+                "value": "0.00"
+              },
+              {
+                "value": "274.50"
+              },
+              {
+                "value": "0.00"
+              },
+              {
+                "value": "0.00"
+              },
+              {
+                "value": "0.00"
+              },
+              {
+                "value": "274.50"
+              }
+            ]
+          },
+          "type": "Section"
+        },
+        {
+          "ColData": [
+            {
+              "value": "Sonnenschein Family Store",
+              "id": "24"
+            },
+            {
+              "value": "362.07"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "362.07"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Sushi by Katsuyuki",
+              "id": "25"
+            },
+            {
+              "value": "80.00"
+            },
+            {
+              "value": "80.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "160.00"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Travis Waldron",
+              "id": "26"
+            },
+            {
+              "value": "414.72"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "414.72"
+            }
+          ]
+        },
+        {
+          "ColData": [
+            {
+              "value": "Weiskopf Consulting",
+              "id": "29"
+            },
+            {
+              "value": "375.00"
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": ""
+            },
+            {
+              "value": "375.00"
+            }
+          ]
+        },
+        {
+          "Summary": {
+            "ColData": [
+              {
+                "value": "TOTAL"
+              },
+              {
+                "value": "3756.02"
+              },
+              {
+                "value": "1128.50"
+              },
+              {
+                "value": "241.00"
+              },
+              {
+                "value": "156.00"
+              },
+              {
+                "value": "0.00"
+              },
+              {
+                "value": "5281.52"
+              }
+            ]
+          },
+          "type": "Section",
+          "group": "GrandTotal"
+        }
+      ]
+    }
+  }
+]

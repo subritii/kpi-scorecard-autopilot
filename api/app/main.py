@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
-from app import email, faithfulness, links, pages, retrieval, runs, service
+from app import email, faithfulness, ingest, links, pages, qbo, retrieval, runs, service
 from app.auth import check_configured_key, require_api_key
 from app.db import client_connection
 from app.llm import get_provider
@@ -56,6 +56,18 @@ def llm_error(request: Request, exc: LLMError) -> JSONResponse:
     return JSONResponse(status_code=status, content={"detail": str(exc)})
 
 
+@app.exception_handler(qbo.ReportError)
+def report_error(request: Request, exc: Exception) -> JSONResponse:
+    # A report we can't read safely is refused whole (nothing is written).
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(ingest.Forbidden)
+def ingest_forbidden(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(ingest.ClientNotFound)
 @app.exception_handler(runs.RunNotFound)
 def run_not_found(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": str(exc)})
@@ -370,6 +382,11 @@ class ResolveClaimRequest(ClientRequest, NonBlank):
     note: str | None = None
 
 
+class IngestRequest(WeekRequest):
+    realm_id: str = Field(min_length=1)  # the QuickBooks company the report came from
+    report: dict  # the report exactly as QuickBooks returned it
+
+
 class AttentionRequest(ClientRequest, NonBlank):
     reason: str = Field(min_length=1)
 
@@ -458,6 +475,18 @@ def runs_needs_attention(run_id: int, req: AttentionRequest, connect: Connect):
     """Flag the run for a human (WF6 error handler), with the reason logged."""
     with connect(req.client_id) as conn:
         return runs.needs_attention(conn, req.client_id, run_id, req.reason)
+
+
+# --- source ingestion (n8n pulls the report; the API checks and loads it) ---------------
+
+
+@api.post("/ingest/qbo-ar-aging")
+def ingest_qbo_ar_aging(req: IngestRequest, connect: Connect):
+    """Load a QuickBooks AgedReceivables report as the week's AR over 60 facts."""
+    with connect(req.client_id) as conn:
+        return service.as_json(
+            ingest.ingest_ar_aging(conn, req.client_id, req.week_start, req.realm_id, req.report)
+        )
 
 
 # --- pages for people: approval and owner reply ------------------------------------------

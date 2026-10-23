@@ -83,6 +83,7 @@ No database, LLM or Azure credentials go into n8n; the API key is its only way i
 | `POST /runs/{id}/mark-sent` | `client_id, idempotency_key` | `state: sent, already_sent`. Needs the claim's key. An already-sent run returns `200` with `already_sent: true`, so a retry is safe. |
 | `POST /runs/{id}/resolve-claim` | `client_id, resolution (sent / not_sent), resolved_by, note` | Settles a stuck claim; recorded with who and when. |
 | `POST /runs/{id}/needs-attention` | `client_id, reason` | `state: needs_attention`, `alert_email` (to the Controller). |
+| `POST /ingest/qbo-ar-aging` | `client_id, week_start, realm_id, report` | Loads a QuickBooks AgedReceivables report (sent raw, exactly as QuickBooks returned it) as that week's AR over 60 facts. `403` unless `realm_id` is the client's own QuickBooks company (only Sandbox Co has one); `422` if the report doesn't check out (nothing is written). |
 | `POST /runs/{id}/responses` | `client_id, kpi_id, what_changed, why, owner_of_fix, actions` | Saves a reply. Owners normally use the reply form instead; this is for manual entry. |
 
 `409` means "the run's state doesn't allow this step" (the `detail` says why);
@@ -109,6 +110,7 @@ nothing. Approving by sending an address to the API is not possible.
 | WF4b Send approved packets | **Built** (manual trigger; poll planned) | `n8n/workflows/wf4b_send_approved.json` |
 | WF5 Remember | Planned, not built (needs `/runs/{id}/remember`) | |
 | WF6 Error handler | Planned, not built | |
+| QBO AR pull (Sandbox Co) | Planned, next | |
 
 Until WF6 exists, no workflow has an error workflow set; failures show in n8n's
 execution list. The HTTP nodes use `http://api:8000` directly (the API's name on
@@ -181,6 +183,30 @@ retry, someone clicking *Retry*), the second execution has a different id, so
 `claim-send` refuses it and leadership gets the packet once. If an execution
 stops after claiming but before `mark-sent`, nothing re-sends it automatically:
 a person settles it with `resolve-claim` (see WF6).
+
+## QBO AR pull (planned, next)
+
+One live pull from the QuickBooks sandbox into the third client, **Sandbox Co**
+(`sandbox_co`); Brightline and Northgate stay on synthetic data.
+
+1. Put the sandbox Company ID in `.env` as `QBO_REALM_ID=...`, then
+   `python scripts/seed_db.py` (stores it on Sandbox Co) and
+   `docker compose up -d n8n` (n8n reads it as `$env.QBO_REALM_ID`).
+2. **Manual Trigger.**
+3. **Code: *Week***: `week_start` (this Monday) and `report_date` (today, or this
+   Sunday): the report's date must fall inside the week.
+4. **HTTP Request: *Get AR aging***: GET
+   `https://sandbox-quickbooks.api.intuit.com/v3/company/{{ $env.QBO_REALM_ID }}/reports/AgedReceivables`,
+   *Authentication*: Predefined Credential Type, QuickBooks Online OAuth2 API,
+   **QuickBooks Sandbox**; query `report_date`, `minorversion=75`; header
+   `Accept: application/json`. (Keep the default aging settings: the API expects
+   the "61 - 90" and "91 and over" columns.)
+5. **HTTP Request: *Ingest***: POST `http://api:8000/ingest/qbo-ar-aging` with
+   the Header Auth credential; body (JSON, expression):
+   `{{ JSON.stringify({ client_id: "sandbox_co", week_start: $('Week').item.json.week_start, realm_id: $env.QBO_REALM_ID, report: $json }) }}`
+6. **HTTP Request: *Start run***: POST `/runs/start {client_id: "sandbox_co", week_start}`.
+7. Check the ingest response's `totals` against *Reports > A/R Aging Summary* in
+   the sandbox for the same date.
 
 ## WF5 Remember (planned, not built)
 

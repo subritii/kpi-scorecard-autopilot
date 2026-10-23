@@ -77,7 +77,7 @@ This is a portfolio project. Synthetic data and sandboxes only.
 
 | Table | Key columns |
 |---|---|
-| `clients` | id, name, controller_email, leadership_emails, clickup_list_id |
+| `clients` | id, name, controller_email, leadership_emails, clickup_list_id, qbo_realm_id (QuickBooks company; only live clients have one) |
 | `kpi_definitions` | id, client_id, name, definition, owner_name, owner_email, source, formula_key, target, direction (`higher`/`lower`), yellow_band_pct |
 | `source_facts` | client_id, week_start, metric_key, value, detail_json |
 | `source_loads` | client_id, week_start, source, row_count, loaded_at |
@@ -137,6 +137,7 @@ KPIs: weekly_revenue ≥ $230K, gross_margin_pct ≥ 28, cash_on_hand ≥ $600K,
 - `POST /retrieve` `{client_id, kpi_id, week_start, query}` → past explanations of that KPI dated before `week_start`, above `RETRIEVAL_MIN_SIMILARITY` (client-scoped; empty if nothing is close enough)
 - `POST /check-faithfulness` `{client_id, run_id, text}` → pass/fail + each problem (type, exact text, reason). Owner replies are exempt only inside `render_owner_quote()` blocks that match the stored reply
 - `POST /eval/run` → metrics dict, also writes `eval/results.md`
+- `POST /ingest/qbo-ar-aging` `{client_id, week_start, realm_id, report}` → loads a QuickBooks AgedReceivables report (pulled by n8n) as the week's 61–90 / 90+ facts plus a `source_loads` row; the realm must be the client's own company
 - `GET /health`
 
 ## n8n workflows

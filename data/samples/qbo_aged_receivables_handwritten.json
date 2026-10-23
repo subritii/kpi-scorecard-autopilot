@@ -1,0 +1,73 @@
+{
+  "Header": {
+    "Time": "2026-10-23T09:00:00-07:00",
+    "ReportName": "AgedReceivables",
+    "DateMacro": "today",
+    "StartPeriod": "2026-10-25",
+    "EndPeriod": "2026-10-25",
+    "SummarizeColumnsBy": "Total",
+    "Currency": "USD",
+    "Option": [
+      {"Name": "report_date", "Value": "2026-10-25"},
+      {"Name": "NoReportData", "Value": "false"}
+    ]
+  },
+  "Columns": {
+    "Column": [
+      {"ColTitle": "", "ColType": "Customer"},
+      {"ColTitle": "Current", "ColType": "Money", "MetaData": [{"Name": "ColKey", "Value": "current"}]},
+      {"ColTitle": "1 - 30", "ColType": "Money", "MetaData": [{"Name": "ColKey", "Value": "0"}]},
+      {"ColTitle": "31 - 60", "ColType": "Money", "MetaData": [{"Name": "ColKey", "Value": "1"}]},
+      {"ColTitle": "61 - 90", "ColType": "Money", "MetaData": [{"Name": "ColKey", "Value": "2"}]},
+      {"ColTitle": "91 and over", "ColType": "Money", "MetaData": [{"Name": "ColKey", "Value": "3"}]},
+      {"ColTitle": "Total", "ColType": "Money", "MetaData": [{"Name": "ColKey", "Value": "total"}]}
+    ]
+  },
+  "Rows": {
+    "Row": [
+      {
+        "ColData": [
+          {"value": "Fictional Plain Customer", "id": "101"},
+          {"value": ""}, {"value": ""}, {"value": ""}, {"value": "0.10"}, {"value": "0.20"}, {"value": "0.30"}
+        ]
+      },
+      {
+        "Header": {"ColData": [{"value": "Fictional Parent Co", "id": "200"}, {"value": ""}, {"value": ""}, {"value": ""}, {"value": ""}, {"value": ""}, {"value": "0.00"}]},
+        "Rows": {
+          "Row": [
+            {
+              "ColData": [
+                {"value": "Parent Job A", "id": "201"},
+                {"value": "10.00"}, {"value": ""}, {"value": ""}, {"value": "100.00"}, {"value": ""}, {"value": "110.00"}
+              ],
+              "type": "Data"
+            },
+            {
+              "Header": {"ColData": [{"value": "Parent Region B", "id": "202"}, {"value": ""}, {"value": ""}, {"value": ""}, {"value": ""}, {"value": ""}, {"value": "0.00"}]},
+              "Rows": {
+                "Row": [
+                  {
+                    "ColData": [
+                      {"value": "Region B Site 1", "id": "203"},
+                      {"value": ""}, {"value": ""}, {"value": ""}, {"value": "25.50"}, {"value": "1000.00"}, {"value": "1025.50"}
+                    ],
+                    "type": "Data"
+                  }
+                ]
+              },
+              "Summary": {"ColData": [{"value": "Total Parent Region B"}, {"value": "0.00"}, {"value": "0.00"}, {"value": "0.00"}, {"value": "25.50"}, {"value": "1000.00"}, {"value": "1025.50"}]},
+              "type": "Section"
+            }
+          ]
+        },
+        "Summary": {"ColData": [{"value": "Total Fictional Parent Co"}, {"value": "10.00"}, {"value": "0.00"}, {"value": "0.00"}, {"value": "125.50"}, {"value": "1000.00"}, {"value": "1135.50"}]},
+        "type": "Section"
+      },
+      {
+        "Summary": {"ColData": [{"value": "TOTAL"}, {"value": "10.00"}, {"value": "0.00"}, {"value": "0.00"}, {"value": "125.60"}, {"value": "1000.20"}, {"value": "1135.80"}]},
+        "type": "Section",
+        "group": "GrandTotal"
+      }
+    ]
+  }
+}

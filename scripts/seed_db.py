@@ -35,15 +35,18 @@ def seed_client(conn: psycopg.Connection, client: dict, kpis, facts, loads):
     cid = client["id"]
     conn.execute(
         """
-        INSERT INTO clients (id, name, controller_email, leadership_emails, clickup_list_id)
+        INSERT INTO clients
+            (id, name, controller_email, leadership_emails, clickup_list_id, qbo_realm_id)
         VALUES (%(id)s, %(name)s, %(controller_email)s, %(leadership_emails)s,
-                %(clickup_list_id)s)
+                %(clickup_list_id)s, %(qbo_realm_id)s)
         ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
             controller_email = EXCLUDED.controller_email,
-            leadership_emails = EXCLUDED.leadership_emails
+            leadership_emails = EXCLUDED.leadership_emails,
+            qbo_realm_id = EXCLUDED.qbo_realm_id
         """,
-        client,
+        # Synthetic clients have no QuickBooks company, so they never take real reports.
+        {**client, "qbo_realm_id": client.get("qbo_realm_id")},
     )
 
     client_kpis = [k for k in kpis if k["client_id"] == cid]
@@ -109,10 +112,19 @@ def main() -> None:
     kpis = load_json("kpi_definitions.json")
     facts = load_csv("source_facts.csv")
     loads = load_csv("source_loads.csv")
+    # Live clients (e.g. Sandbox Co) get real data from their source, not synthetic
+    # facts; their QuickBooks company id comes from .env, never from the repo.
+    live = load_json("live_clients.json")
     # Leaving the `with` block commits once; any error rolls back the whole load.
     with psycopg.connect(os.environ["ADMIN_DATABASE_URL"]) as conn:
         for client in load_json("clients.json"):
             seed_client(conn, client, kpis, facts, loads)
+        for entry in live:
+            client = dict(entry["client"])
+            realm = os.environ.get(client.pop("qbo_realm_id_env"), "").strip() or None
+            seed_client(conn, {**client, "qbo_realm_id": realm}, entry["kpi_definitions"], [], [])
+            if realm is None:
+                print(f"{client['id']}: no QuickBooks company id in .env yet; it takes no reports")
 
 
 if __name__ == "__main__":
