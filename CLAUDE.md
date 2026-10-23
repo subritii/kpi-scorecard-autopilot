@@ -203,8 +203,8 @@ python scripts/run_eval.py
 - [x] **Phase 2 Math**: `/compute` and `/drivers` with tests passing
 - [x] **Phase 3 RAG**: LLM provider interface, embed_docs, `/retrieve` (client-scoped), isolation test
 - [x] **Phase 4 Guardrails**: `/check-faithfulness` with tests
-- [ ] **Phase 5 Workflows**: WF1–WF6 in n8n, exported to repo
-- [ ] **Phase 6 Integrations**: one live QuickBooks sandbox report pull, ClickUp task create/comment
-- [ ] **Phase 7 Eval + ship**: `/eval/run`, `eval/results.md`, README with diagram and results
+- [x] **Phase 5 Workflows** (WF1, WF2, WF4, WF4b built and exported; WF3, WF5, WF6 planned): WF1–WF6 in n8n, exported to repo
+- [x] **Phase 6 Integrations** (QuickBooks sandbox AR pull; ClickUp task on send): one live QuickBooks sandbox report pull, ClickUp task create/comment
+- [x] **Phase 7 Eval + ship** (`scripts/run_eval.py` writes `eval/results.md`; `/eval/run` endpoint not built): `/eval/run`, `eval/results.md`, README with diagram and results
 
-Current phase: **Phase 5**
+Current phase: **Next steps** (see README)
