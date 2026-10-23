@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI Scorecard Autopilot</title>
+<meta name="description" content="Weekly client KPI scorecards that build themselves, get explained by the people who own each number, and go out only after a Controller approves them.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #F2F6F1;
+  --sheet: #FBFDFA;
+  --rule: #D3E3D6;
+  --rule-strong: #A9C7B0;
+  --ink: #1D2840;
+  --ink-soft: #4D5872;
+  --pen: #C62F3A;
+  --tick: #23794A;
+  --tick-soft: #DCEFE2;
+  --pen-soft: #FBE3E4;
+  --marker: #FFE27A;
+  --shadow: 0 1px 0 rgba(29,40,64,.06), 0 12px 28px -18px rgba(29,40,64,.35);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12201A; --sheet: #182A22; --rule: #26392F; --rule-strong: #3B5547;
+    --ink: #E6EFE8; --ink-soft: #A7B9AD; --pen: #FF7A80; --tick: #6BD497;
+    --tick-soft: #1F3A2B; --pen-soft: #3A2226; --marker: #8C7524;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12201A; --sheet: #182A22; --rule: #26392F; --rule-strong: #3B5547;
+  --ink: #E6EFE8; --ink-soft: #A7B9AD; --pen: #FF7A80; --tick: #6BD497;
+  --tick-soft: #1F3A2B; --pen-soft: #3A2226; --marker: #8C7524;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 17px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--tick); outline-offset: 3px; border-radius: 4px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+h1, h2, h3 { font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif; letter-spacing: -0.02em; margin: 0; }
+h2 { font-size: clamp(28px, 3.2vw, 38px); font-weight: 800; line-height: 1.1; }
+.lede { color: var(--ink-soft); max-width: 60ch; margin: 10px 0 0; }
+.hand { font-family: "Caveat", cursive; font-weight: 700; color: var(--pen); line-height: 1; }
+section { padding: 72px 0; }
+section + section { border-top: 1px solid var(--rule); }
+
+/* ---------- top bar ---------- */
+.bar { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; font-size: 15px; }
+.brand { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.01em; text-decoration: none; }
+.brand span { color: var(--tick); }
+.bar nav { display: flex; gap: 18px; align-items: center; }
+.bar nav a { text-decoration: none; color: var(--ink-soft); }
+.bar nav a:hover { color: var(--ink); }
+.theme { background: none; border: 1px solid var(--rule-strong); color: var(--ink-soft); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+
+/* ---------- hero ---------- */
+.hero { padding: 36px 0 76px; border-top: 0; }
+.hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 56px; align-items: center; }
+.hero h1 { font-size: clamp(38px, 4.6vw, 60px); font-weight: 800; line-height: 1.02; }
+.hero h1 .quiet { display: block; color: var(--ink-soft); font: 400 clamp(19px, 1.6vw, 22px)/1.45 "IBM Plex Sans", sans-serif; margin-top: 18px; letter-spacing: 0; max-width: 40ch; }
+.who { margin-top: 26px; display: grid; gap: 10px; max-width: 46ch; }
+.who div { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; color: var(--ink-soft); }
+.who svg { margin-top: 3px; }
+.who b { color: var(--ink); font-weight: 600; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 16px; border: 1.5px solid var(--ink); }
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn.ghost { color: var(--ink); }
+.btn:hover { transform: translateY(-1px); }
+.fiction { margin-top: 18px; font-size: 14px; color: var(--ink-soft); }
+
+/* the scorecard sheet */
+.sheet { position: relative; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: var(--shadow); margin-bottom: 40px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 20px 12px; border-bottom: 2px solid var(--ink); background: var(--sheet); border-radius: 6px 6px 0 0; }
+.sheet-head h3 { font-size: 19px; font-weight: 700; }
+.sheet-head small { color: var(--ink-soft); font-size: 14px; }
+.score { width: 100%; border-collapse: collapse; font-size: 15px; }
+.score th { text-align: left; font-weight: 500; font-size: 13px; color: var(--ink-soft); padding: 10px 20px 8px; }
+.score th.num, .score td.num { text-align: right; }
+.score td { padding: 0 20px; height: 44px; border-bottom: 1px solid var(--rule); }
+.score tr:last-child td { border-bottom: 0; }
+.score td.kpi { font-weight: 500; }
+.score td.mark { width: 44px; text-align: center; padding: 0 10px 0 0; }
+.score tr.red td { color: var(--pen); font-weight: 600; }
+.tickmark path { stroke: var(--tick); stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.flag { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--pen); color: #fff; font: 700 14px/22px "IBM Plex Sans"; }
+.ring { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.ring path { stroke: var(--pen); stroke-width: 2.4; fill: none; stroke-linecap: round; }
+.note { position: absolute; font-size: 26px; transform: rotate(-4deg); white-space: nowrap; }
+.sheet-foot { padding: 12px 20px; font-size: 14px; color: var(--ink-soft); border-top: 1px solid var(--rule-strong); display: flex; justify-content: space-between; gap: 12px; background: var(--sheet); border-radius: 0 0 6px 6px; }
+
+/* one orchestrated load moment */
+@media (prefers-reduced-motion: no-preference) {
+  .anim .tickmark path { stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw .35s ease-out forwards; }
+  .anim .ring path { stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 1s ease-in-out 1.9s forwards; }
+  .anim .ring #ring-tail { stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw .4s ease-out 2.8s forwards; }
+  .anim .note { opacity: 0; animation: fade .4s ease-out 3.1s forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes fade { to { opacity: 1; } }
+}
+
+/* ---------- checklist (problem + solution in one) ---------- */
+.list-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 56px; align-items: start; }
+.legend { margin-top: 26px; display: grid; gap: 12px; font-size: 15px; color: var(--ink-soft); }
+.legend div { display: flex; gap: 12px; align-items: center; }
+.legend .sw-auto { width: 34px; height: 2px; background: var(--pen); border-radius: 2px; }
+.legend .sw-human { width: 30px; height: 18px; border: 2px solid var(--tick); border-radius: 50%; }
+.todo { list-style: none; margin: 0; padding: 8px 0; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: var(--shadow); }
+.todo li { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 12px 22px; border-bottom: 1px solid var(--rule); }
+.todo li:last-child { border-bottom: 0; }
+.box { width: 18px; height: 18px; border: 1.5px solid var(--rule-strong); border-radius: 4px; }
+.todo .task { position: relative; justify-self: start; }
+.todo li.auto .task { color: var(--ink-soft); }
+.todo li.auto .task { text-decoration: line-through; text-decoration-color: var(--pen); text-decoration-thickness: 2px; }
+.todo li.human .task { font-weight: 600; padding: 2px 10px; margin-left: -10px; border: 2px solid var(--tick); border-radius: 50% / 60%; }
+.todo .say { font-size: 24px; white-space: nowrap; }
+.todo li.human .say { color: var(--tick); }
+.per-client { margin: 18px 0 0; font-size: 15px; color: var(--ink-soft); }
+
+/* ---------- one week, step by step ---------- */
+.week-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
+.track { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); margin: 34px 0 0; padding: 0; list-style: none; }
+.track::before { content: ""; position: absolute; left: 7%; right: 7%; top: 21px; height: 2px; background: var(--rule-strong); }
+.track button { all: unset; cursor: pointer; display: grid; justify-items: center; text-align: center; gap: 8px; padding: 0 6px 6px; position: relative; }
+.dot { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--sheet); border: 2px solid var(--ink); font: 700 15px "Bricolage Grotesque"; color: var(--ink); position: relative; z-index: 1; }
+.track .human .dot { border-color: var(--tick); color: var(--tick); border-style: dashed; }
+.when { font-size: 13px; color: var(--ink-soft); }
+.what { font-size: 14.5px; font-weight: 600; line-height: 1.25; max-width: 13ch; }
+.track button[aria-selected="true"] .dot { background: var(--ink); color: var(--paper); border-style: solid; }
+.track .human button[aria-selected="true"] .dot { background: var(--tick); border-color: var(--tick); color: #fff; }
+.track button:hover .dot { transform: scale(1.06); }
+.stage { margin-top: 26px; display: grid; grid-template-columns: .8fr 1.2fr; gap: 40px; align-items: start; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 8px; padding: 30px; box-shadow: var(--shadow); min-height: 340px; }
+.stage .tag { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule-strong); }
+.stage .tag.human { color: var(--tick); border-color: var(--tick); background: var(--tick-soft); }
+.stage h3 { font-size: 26px; font-weight: 700; margin: 14px 0 8px; line-height: 1.15; }
+.stage p { margin: 0 0 10px; color: var(--ink-soft); }
+.nav-steps { display: flex; gap: 10px; margin-top: 18px; }
+.nav-steps button { font: 600 14px "IBM Plex Sans"; color: var(--ink); background: none; border: 1.5px solid var(--rule-strong); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.nav-steps button:disabled { opacity: .4; cursor: default; }
+
+/* artifacts shown in the stage */
+.art { background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; font-size: 15px; }
+.art .label { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
+.src { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.src .pill { padding: 8px 12px; border-radius: 8px; background: var(--sheet); border: 1px solid var(--rule-strong); font-weight: 600; font-size: 14px; }
+.mini { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.mini td { padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.mini tr:last-child td { border-bottom: 0; }
+.mini td.num { text-align: right; }
+.mini tr.red td { color: var(--pen); font-weight: 600; }
+.bars { display: grid; gap: 12px; }
+.bars .row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+.bars .name { font-weight: 600; }
+.bars .amt { color: var(--ink-soft); }
+.bars .track2 { grid-column: 1 / -1; height: 10px; border-radius: 6px; background: var(--rule); overflow: hidden; }
+.bars .fill { height: 100%; background: var(--pen); border-radius: 6px; }
+.bars .fill.down { background: var(--tick); }
+.jump { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.jump .from { color: var(--ink-soft); text-decoration: line-through; }
+.jump .to { font: 800 30px "Bricolage Grotesque"; color: var(--pen); }
+.mail { font-size: 15px; }
+.mail .hdr { display: grid; grid-template-columns: 64px 1fr; gap: 2px 8px; font-size: 14px; color: var(--ink-soft); padding-bottom: 10px; border-bottom: 1px solid var(--rule); margin-bottom: 10px; }
+.mail .hdr b { color: var(--ink); font-weight: 600; }
+.mail p { margin: 0 0 8px; color: var(--ink); }
+.mail .past { border-left: 3px solid var(--rule-strong); padding: 4px 0 4px 12px; color: var(--ink-soft); font-size: 14px; }
+.mail .link { display: inline-block; margin-top: 4px; padding: 7px 12px; border-radius: 8px; background: var(--ink); color: var(--paper); font-weight: 600; font-size: 14px; }
+.qa { display: grid; gap: 12px; }
+.qa div { display: grid; gap: 2px; }
+.qa dt { font-size: 13px; color: var(--ink-soft); }
+.qa dd { margin: 0; }
+.qa mark { background: linear-gradient(transparent 55%, var(--marker) 55%); color: inherit; padding: 0 2px; }
+.checked { display: flex; gap: 10px; align-items: center; margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--tick-soft); color: var(--tick); font-weight: 600; font-size: 14px; }
+.stamp { display: inline-block; transform: rotate(-6deg); border: 3px solid var(--tick); color: var(--tick); border-radius: 8px; padding: 10px 16px; font: 800 22px "Bricolage Grotesque"; letter-spacing: .04em; margin: 4px 0 14px; }
+.stamp small { display: block; font: 500 13px "IBM Plex Sans"; letter-spacing: 0; }
+.task-card { border: 1px solid var(--rule-strong); border-left: 4px solid #7B68EE; border-radius: 6px; padding: 12px 14px; background: var(--sheet); margin-top: 12px; }
+.task-card b { display: block; }
+.task-card span { font-size: 13px; color: var(--ink-soft); }
+.once { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.once div { flex: 1 1 140px; padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--rule-strong); font-size: 14px; }
+.once b { display: block; }
+
+/* ---------- other clients ---------- */
+.clients { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 30px; }
+.client { background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; padding: 22px 24px; box-shadow: var(--shadow); }
+.client h3 { font-size: 20px; }
+.client .sub { color: var(--ink-soft); font-size: 14px; margin: 2px 0 10px; }
+.client .verdict { margin-top: 14px; font-size: 24px; }
+.client .verdict.green { color: var(--tick); }
+.qb { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.qb div { padding: 10px 12px; background: var(--paper); border-radius: 6px; border: 1px solid var(--rule); }
+.qb b { display: block; font: 700 22px "Bricolage Grotesque"; }
+.qb span { font-size: 13px; color: var(--ink-soft); }
+
+/* ---------- trust + results ---------- */
+.trust-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
+.rules { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 16px; }
+.rules li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; }
+.rules b { display: block; }
+.rules span { color: var(--ink-soft); font-size: 15px; }
+.audit { background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: var(--shadow); padding: 8px 0; margin-top: 22px; }
+.audit div { display: grid; grid-template-columns: 1fr auto 32px; gap: 12px; align-items: center; padding: 11px 22px; border-bottom: 1px solid var(--rule); }
+.audit div:last-child { border-bottom: 0; }
+.audit strong { font: 700 20px "Bricolage Grotesque"; }
+.small { font-size: 14px; color: var(--ink-soft); margin-top: 12px; }
+
+/* ---------- why ---------- */
+.why { display: grid; grid-template-columns: .9fr 1.1fr; gap: 56px; align-items: start; }
+.why p { margin: 0 0 14px; max-width: 58ch; }
+.stack { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.stack span { font-size: 14px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--rule-strong); background: var(--sheet); }
+footer { padding: 36px 0 48px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--ink-soft); }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+footer nav { display: flex; gap: 18px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 960px) {
+  .hero-grid, .list-grid, .trust-grid, .why, .stage { grid-template-columns: 1fr; gap: 32px; }
+  .clients { grid-template-columns: 1fr; }
+  .track { grid-template-columns: 1fr; gap: 6px; }
+  .track::before { left: 21px; right: auto; top: 0; bottom: 0; width: 2px; height: auto; }
+  .track button { grid-template-columns: 44px 1fr; justify-items: start; text-align: left; align-items: center; column-gap: 14px; row-gap: 0; padding: 4px 0; }
+  .track .dot { grid-row: span 2; }
+  .what { max-width: none; }
+  .note, #ring-tail { display: none; }
+}
+@media (max-width: 560px) {
+  .wrap { padding: 0 16px; }
+  section { padding: 52px 0; }
+  .bar nav a.hide-sm { display: none; }
+  .score th:nth-child(3), .score td:nth-child(3) { display: none; }
+  .score td, .score th { padding-left: 12px; padding-right: 12px; }
+  .stage { padding: 20px; }
+  .qb { grid-template-columns: 1fr 1fr; }
+  .todo li { grid-template-columns: 24px 1fr; padding: 12px 16px; }
+  .todo .say { grid-column: 2; font-size: 20px; }
+  .todo li.human .task { border-radius: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <a class="brand" href="#top">KPI Scorecard <span>Autopilot</span></a>
+    <nav>
+      <a class="hide-sm" href="#week">How it works</a>
+      <a class="hide-sm" href="__GITHUB_URL__">GitHub</a>
+      <button class="theme" id="theme" type="button" aria-label="Switch light or dark theme">Dark</button>
+    </nav>
+  </header>
+</div>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>The weekly KPI scorecard, done before the Monday coffee.
+          <span class="quiet">It finds what's off target, asks the person who owns it, and waits for the Controller's sign-off.</span>
+        </h1>
+        <div class="who">
+          <div><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2" y="3" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9h10M6 13h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Code</b> pulls the numbers and does all the math.</span></div>
+          <div><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 19c1.2-3.6 4.1-5.2 7.5-5.2s6.3 1.6 7.5 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Owners</b> explain why a number moved.</span></div>
+          <div><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M5 11.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>The Controller</b> approves before anything reaches a client.</span></div>
+        </div>
+        <div class="cta">
+          <a class="btn primary" href="__VIDEO_URL__">Watch the 2-minute demo</a>
+          <a class="btn ghost" href="#week">Walk through one week</a>
+        </div>
+        <p class="fiction">Every company, person and number on this page is fictional.</p>
+      </div>
+
+      <div class="sheet anim" id="sheet" aria-label="Example scorecard">
+        <div class="sheet-head"><h3 id="sheet-client"></h3><small id="sheet-week"></small></div>
+        <table class="score">
+          <thead><tr><th>KPI</th><th class="num">This week</th><th class="num">Target</th><th class="num" aria-label="Status"></th></tr></thead>
+          <tbody id="sheet-rows"></tbody>
+        </table>
+        <div class="sheet-foot"><span id="sheet-foot-left"></span><span>Built Monday 6:00</span></div>
+        <svg class="ring" id="ring" aria-hidden="true"><path id="ring-path"/><path id="ring-tail"/></svg>
+        <div class="note hand" id="note" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="grind">
+    <div class="wrap list-grid">
+      <div>
+        <h2>A Controller's Monday, for every client</h2>
+        <p class="lede">The same eight jobs, for each of five to seven clients, every week. Six of them are routine. Two need a person, so they stay with people.</p>
+        <div class="legend">
+          <div><span class="sw-auto"></span>Struck through: the automation does it</div>
+          <div><span class="sw-human"></span>Circled: a person still does it</div>
+        </div>
+      </div>
+      <ol class="todo" id="todo"></ol>
+    </div>
+  </section>
+
+  <section id="week">
+    <div class="wrap">
+      <div class="week-head">
+        <div>
+          <h2>Follow one week at Brightline Services</h2>
+          <p class="lede">Week of Aug 3, 2026. Pick any step to see what actually happened.</p>
+        </div>
+      </div>
+      <ol class="track" id="track" role="tablist" aria-label="Steps in one week"></ol>
+      <div class="stage" id="stage" role="tabpanel" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="others">
+    <div class="wrap">
+      <h2>Same week, other clients</h2>
+      <p class="lede">Most weeks, most numbers are fine. Nobody gets an email unless something is off target.</p>
+      <div class="clients">
+        <article class="client" id="northgate"></article>
+        <article class="client" id="sandbox"></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="trust">
+    <div class="wrap trust-grid">
+      <div>
+        <h2>Built so accountants can trust it</h2>
+        <ul class="rules">
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>The math is code, never AI</b><span>Every KPI is calculated by tested code with exact decimals.</span></div></li>
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>AI says what moved, never why</b><span>Every sentence it writes is checked against the books. Reasons come from owners.</span></div></li>
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>Approved first, sent once</b><span>Nothing reaches a client without the Controller, and never twice.</span></div></li>
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>Each client's books stay separate</b><span>The database itself keeps clients apart, and the AI runs locally, so client data stays in-house.</span></div></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Checked against an answer key</h2>
+        <div class="audit" id="audit"></div>
+        <p class="small">Measured on synthetic data with planted problems whose answers are known. It shows the system does what it was designed to do, not how it would score on messy real books.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap why">
+      <h2>Why I built this</h2>
+      <div>
+        <p>Fractional CFO firms run the same weekly KPI review for every client, and much of it is copy, paste and chase. I wanted to automate that routine with tools these firms already use, while keeping accountants in control of every judgment call.</p>
+        <p>I built it with Claude Code assistance. I designed the workflow, the safeguards, the tests and the evaluation, and checked the QuickBooks pull against QuickBooks' own report.</p>
+        <div class="stack"><span>n8n</span><span>QuickBooks Online</span><span>ClickUp</span><span>Python + FastAPI</span><span>Postgres</span><span>Local AI (Ollama)</span></div>
+        <div class="cta">
+          <a class="btn primary" href="__VIDEO_URL__">Watch the demo</a>
+          <a class="btn ghost" href="__GITHUB_URL__">Read the code</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Subriti Pradhan. All data on this page is fictional.</span>
+    <nav><a href="__VIDEO_URL__">Demo video</a><a href="__GITHUB_URL__">GitHub</a><a href="__LINKEDIN_URL__">LinkedIn</a></nav>
+  </div>
+</footer>
+
+<script id="demo-data" type="application/json">__DEMO_DATA__</script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById("demo-data").textContent);
+  const B = D.brightline;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---- theme toggle (per-viewer convenience only) ----
+  const root = document.documentElement, tbtn = $("theme");
+  const isDark = () => root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const label = () => { tbtn.textContent = isDark() ? "Light" : "Dark"; };
+  try { const t = localStorage.getItem("kpi-theme"); if (t) root.dataset.theme = t; } catch (e) {}
+  label();
+  tbtn.addEventListener("click", () => { root.dataset.theme = isDark() ? "light" : "dark"; try { localStorage.setItem("kpi-theme", root.dataset.theme); } catch (e) {} label(); });
+
+  // ---- formatting ----
+  function fmt(k) {
+    const v = Number(k.value);
+    if (k.formula_key === "gross_margin_pct") return v.toFixed(1) + "%";
+    if (k.formula_key === "inventory_days") return v.toFixed(1) + " days";
+    return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  const short = (s) => s.replace(" target", "");
+  const tick = '<svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-label="On target"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg>';
+  const flag = '<span class="flag" aria-label="Off target">!</span>';
+
+  // ---- hero scorecard ----
+  $("sheet-client").textContent = B.client_name;
+  $("sheet-week").textContent = "Week of " + B.week_label;
+  const reds = B.kpis.filter((k) => k.status === "red").length;
+  $("sheet-foot-left").textContent = (B.kpis.length - reds) + " on target, " + reds + " needs an owner";
+  $("sheet-rows").innerHTML = B.kpis.map((k, i) =>
+    `<tr class="${k.status === "red" ? "red" : ""}" data-red="${k.status === "red"}"><td class="kpi">${esc(k.name)}</td><td class="num">${fmt(k)}</td><td class="num">${esc(short(k.target))}</td><td class="mark">${k.status === "red" ? flag : tick}</td></tr>`).join("");
+  document.querySelectorAll("#sheet-rows .tickmark path").forEach((p, i) => { p.style.animationDelay = (0.35 + i * 0.3) + "s"; });
+
+  function placeRing() {
+    const sheet = $("sheet"), row = sheet.querySelector('tr[data-red="true"]');
+    if (!row) return;
+    const s = sheet.getBoundingClientRect(), r = row.getBoundingClientRect();
+    const x = 8, y = r.top - s.top - 4, w = s.width - 16, h = r.height + 8;
+    const ring = $("ring");
+    ring.setAttribute("width", s.width); ring.setAttribute("height", s.height);
+    ring.style.left = "0"; ring.style.top = "0";
+    $("ring-path").setAttribute("d",
+      `M ${x + w * 0.08} ${y + 2} C ${x + w * 0.5} ${y - 6}, ${x + w + 6} ${y - 2}, ${x + w} ${y + h * 0.5} C ${x + w - 4} ${y + h + 6}, ${x + 10} ${y + h + 4}, ${x} ${y + h * 0.55} C ${x - 4} ${y + 4}, ${x + w * 0.2} ${y - 3}, ${x + w * 0.42} ${y - 1}`);
+    // a short pen stroke from the ring down to a margin note under the sheet
+    const tx = x + w - 2, ty = y + h * 0.8, ny = s.height + 6;
+    $("ring-tail").setAttribute("d", `M ${tx} ${ty} C ${tx + 10} ${ty + 30}, ${tx + 6} ${ny - 10}, ${tx - 14} ${ny + 6}`);
+    const note = $("note");
+    note.textContent = "ask " + B.red_kpi.owner_name.split(" ")[0] + " why";
+    note.style.left = (tx - 22) + "px";
+    note.style.top = (ny - 4) + "px";
+    note.style.transform = "translateX(-100%) rotate(-4deg)";
+  }
+  placeRing();
+  addEventListener("resize", placeRing);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeRing);
+
+  // ---- the Monday checklist ----
+  const todo = [
+    ["Pull each client's numbers from QuickBooks", "auto", "automated"],
+    ["Rebuild the KPI scorecard", "auto", "automated"],
+    ["Spot what's off target, and what moved it", "auto", "automated"],
+    ["Ask the person who owns that number", "auto", "automated"],
+    ["Explain why it moved", "human", "the owner"],
+    ["Build the packet and check every number", "auto", "automated"],
+    ["Approve it before it goes to the client", "human", "the Controller"],
+    ["Send it once, and log it in ClickUp", "auto", "automated"],
+  ];
+  $("todo").innerHTML = todo.map(([t, kind, say]) =>
+    `<li class="${kind}"><span class="box" aria-hidden="true"></span><span class="task">${esc(t)}</span><span class="say hand">${esc(say)}</span></li>`).join("");
+
+  // ---- one week, step by step ----
+  const ar = B.kpis.find((k) => k.status === "red");
+  const maxShare = Math.max(...B.drivers.map((d) => parseFloat(d.share)));
+  const steps = [
+    { when: "Mon 6:00", what: "Numbers come in", who: "auto",
+      title: "Monday morning, the numbers arrive on their own",
+      text: "Accounting numbers come from QuickBooks and bookings from a sales sheet. Code calculates every KPI and compares it to that client's target.",
+      art: `<div class="art"><div class="src"><span class="pill">QuickBooks</span><span class="pill">Sales sheet</span></div>
+        <table class="mini">${B.kpis.map((k) => `<tr class="${k.status === "red" ? "red" : ""}"><td>${esc(k.name)}</td><td class="num">${fmt(k)}</td></tr>`).join("")}</table></div>` },
+    { when: "Mon 6:01", what: "Off target spotted", who: "auto",
+      title: `${esc(ar.name)} doubled, and two customers explain almost all of it`,
+      text: "The system doesn't stop at \"red\". It ranks which customers moved the number, so the owner starts with the right names.",
+      art: `<div class="art"><div class="jump"><span class="from">${esc(ar.prior)}</span><span class="to">${fmt(ar)}</span><span>target ${esc(short(ar.target))}</span></div>
+        <div class="bars">${B.drivers.map((d) => { const neg = d.change.startsWith("-"); const pct = parseFloat(d.share); return `<div class="row"><span class="name">${esc(d.name)}</span><span class="amt">${esc(d.change)}, ${esc(d.share)}</span><div class="track2"><div class="fill ${neg ? "down" : ""}" style="width:${Math.max(2, pct / maxShare * 100)}%"></div></div></div>`; }).join("")}</div></div>` },
+    { when: "Mon 6:05", what: "Owner asked", who: "auto",
+      title: `${esc(B.red_kpi.owner_name)} gets one short email`,
+      text: "AI writes the wording from the computed numbers, and it's checked before sending. It also finds how a similar jump was explained last year.",
+      art: `<div class="art mail"><div class="hdr"><span>To</span><b>${esc(B.red_kpi.owner_email)}</b><span>Subject</span><b>${esc(B.owner_email.subject)}</b></div>
+        <p>${esc(B.observation.split("\n")[0])}</p>
+        <p class="past">Last year (week of Aug 4, 2025): two customers held payments while moving to a new AP system.</p>
+        <span class="link">Answer four questions</span></div>` },
+    { when: "Mon", what: "Owner explains", who: "human",
+      title: "The owner answers in plain words",
+      text: "Four questions, one form. Their answers go into the packet exactly as written: nobody, and no AI, rewrites them.",
+      art: `<div class="art"><dl class="qa">
+        <div><dt>What changed?</dt><dd>${esc(B.reply.what_changed)}</dd></div>
+        <div><dt>Why?</dt><dd><mark>${esc(B.reply.why)}</mark></dd></div>
+        <div><dt>Who owns the fix?</dt><dd>${esc(B.reply.owner_of_fix)}</dd></div>
+        <div><dt>What's being done?</dt><dd>${esc(B.reply.actions)}</dd></div></dl></div>` },
+    { when: "Tue 12:00", what: "Packet checked", who: "auto",
+      title: "The packet is assembled, then every number is checked",
+      text: "Scorecard, what moved and the owner's answer, on one page. Any number, name or date that doesn't match the books blocks the packet.",
+      art: `<div class="art"><div class="label">${esc(B.client_name)}, week of ${esc(B.week_label)}</div>
+        <table class="mini">${B.kpis.map((k) => `<tr class="${k.status === "red" ? "red" : ""}"><td>${esc(k.name)}</td><td class="num">${fmt(k)}</td><td class="num">${k.status === "red" ? flag : tick}</td></tr>`).join("")}</table>
+        <div class="checked">${tick}<span>Every number matches the books${B.packet_passed_check ? "" : " (failed)"}</span></div></div>` },
+    { when: "Tue", what: "Controller approves", who: "human",
+      title: "The Controller reviews it and signs off",
+      text: "The approval link works once, for that exact version of the packet. Nothing goes to the client without it.",
+      art: `<div class="art"><div class="stamp">APPROVED<small>${esc(B.approval.approver)}</small><small>${esc(B.approval.decided_at)}</small></div>
+        <p class="small">If the packet changes after this, the approval no longer counts and the Controller has to look again.</p></div>` },
+    { when: "Tue", what: "Sent once, logged", who: "auto",
+      title: "Leadership gets it once, and ClickUp has the record",
+      text: "Even if a step is retried, the packet goes out exactly once.",
+      art: `<div class="art"><div class="label">Sent to</div><div>${B.packet_email.to.map(esc).join(", ")}</div>
+        <div class="task-card"><b>${esc(B.clickup_task.name)}</b><span>Weekly Packets list in ClickUp</span></div>
+        <div class="once"><div><b>Run 1</b>Packet sent</div><div><b>Run 2</b>Nothing sent: already done</div></div></div>` },
+  ];
+  const track = $("track"), stage = $("stage");
+  track.innerHTML = steps.map((s, i) =>
+    `<li class="${s.who}"><button role="tab" id="t${i}" aria-controls="stage" aria-selected="false"><span class="dot">${i + 1}</span><span class="when">${esc(s.when)}</span><span class="what">${esc(s.what)}</span></button></li>`).join("");
+  const btns = [...track.querySelectorAll("button")];
+  function show(i) {
+    btns.forEach((b, j) => { b.setAttribute("aria-selected", String(i === j)); b.tabIndex = i === j ? 0 : -1; });
+    const s = steps[i];
+    stage.setAttribute("aria-labelledby", "t" + i);
+    stage.innerHTML = `<div><span class="tag ${s.who}">${s.who === "human" ? "A person does this" : "Automated"}</span>
+      <h3>${s.title}</h3><p>${s.text}</p>
+      <div class="nav-steps"><button type="button" data-go="${i - 1}" ${i === 0 ? "disabled" : ""}>Previous step</button><button type="button" data-go="${i + 1}" ${i === steps.length - 1 ? "disabled" : ""}>Next step</button></div></div>
+      <div>${s.art}</div>`;
+    stage.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { show(+b.dataset.go); btns[+b.dataset.go].focus({ preventScroll: true }); }));
+  }
+  btns.forEach((b, i) => {
+    b.addEventListener("click", () => show(i));
+    b.addEventListener("keydown", (e) => {
+      const n = e.key === "ArrowRight" || e.key === "ArrowDown" ? i + 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? i - 1 : null;
+      if (n !== null && n >= 0 && n < btns.length) { e.preventDefault(); show(n); btns[n].focus(); }
+    });
+  });
+  show(0);
+
+  // ---- other clients ----
+  const N = D.northgate, S = D.sandbox;
+  $("northgate").innerHTML = `<h3>${esc(N.client_name)}</h3><div class="sub">Week of ${esc(N.week_label)}</div>
+    <table class="mini">${N.kpis.map((k) => `<tr><td>${esc(k.name)}</td><td class="num">${fmt(k)}</td><td class="num">${tick}</td></tr>`).join("")}</table>
+    <div class="verdict hand green">all green, nobody emailed</div>`;
+  const qb = (v) => "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2 });
+  $("sandbox").innerHTML = `<h3>${esc(S.client_name)}</h3><div class="sub">Live pull from a QuickBooks test company, as of ${esc(S.as_of)}</div>
+    <p class="small" style="margin:0">A real A/R Aging report, checked against QuickBooks' own totals before anything is saved.</p>
+    <div class="qb"><div><b>${esc(S.customers)}</b><span>customers read</span></div><div><b>${qb(S.totals.ar_61_90)}</b><span>61 to 90 days</span></div><div><b>${qb(S.totals.ar_90_plus)}</b><span>over 90 days</span></div></div>
+    <div class="verdict hand green">under the ${esc(short(S.kpis[0].target))} target</div>`;
+
+  // ---- results ----
+  const audit = [
+    ["KPI statuses correct", "120 of 120"],
+    ["False alarms on normal weeks", "0"],
+    ["Right cause ranked first", "10 of 10"],
+    ["Packets passing the number check", "7 of 7"],
+    ["Times one client saw another's data", "0"],
+  ];
+  $("audit").innerHTML = audit.map(([k, v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong>${tick}</div>`).join("");
+})();
+</script>
+</body>
+</html>

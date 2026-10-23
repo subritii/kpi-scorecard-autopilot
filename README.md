@@ -161,15 +161,16 @@ python scripts/reset_demo_week.py --client brightline --week 2026-08-03 --yes  #
 
 ## Landing page
 
-`docs/index.html` is a one-page, self-contained summary of the project
-(served by GitHub Pages from `/docs`). It is built from saved output of the
-real API code, never from live calls:
+`docs/index.html` is a one-page summary of the project (served by GitHub
+Pages from `/docs`). It is `docs/template.html` filled with saved output of
+the real API code, never live calls; only the fields the page shows are
+embedded, and the only outside request is Google Fonts:
 
 ```bash
 python scripts/capture_demo_data.py   # dry run on the TEST database, rolled back
                                       # -> data/demo/example_week.json (links scrubbed,
                                       #    fictional .example recipients only)
-python scripts/build_demo_site.py     # -> docs/index.html (no external requests)
+python scripts/build_demo_site.py     # docs/template.html -> docs/index.html
 ```
 
 Set `VIDEO_URL`, `GITHUB_URL` and `LINKEDIN_URL` at the top of

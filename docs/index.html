@@ -4,301 +4,541 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KPI Scorecard Autopilot</title>
-<meta name="description" content="Weekly client KPI reports, built, explained and approved automatically.">
+<meta name="description" content="Weekly client KPI scorecards that build themselves, get explained by the people who own each number, and go out only after a Controller approves them.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f7f7f4; --surface: #ffffff; --text: #1d2327; --muted: #5d6870; --line: #e3e5e0;
-  --accent: #2f6f6a; --accent-soft: #e2efed; --red: #b3261e; --red-soft: #fbe3e1;
-  --green: #2e6b3a; --green-soft: #e1f1e3; --yellow: #7a5b00; --yellow-soft: #fbf0cc;
-  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 24px rgba(0,0,0,.05);
+  --paper: #F2F6F1;
+  --sheet: #FBFDFA;
+  --rule: #D3E3D6;
+  --rule-strong: #A9C7B0;
+  --ink: #1D2840;
+  --ink-soft: #4D5872;
+  --pen: #C62F3A;
+  --tick: #23794A;
+  --tick-soft: #DCEFE2;
+  --pen-soft: #FBE3E4;
+  --marker: #FFE27A;
+  --shadow: 0 1px 0 rgba(29,40,64,.06), 0 12px 28px -18px rgba(29,40,64,.35);
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #121516; --surface: #1b1f21; --text: #e7ebec; --muted: #9aa6ab; --line: #2a3033;
-    --accent: #7cc4bc; --accent-soft: #1f3331; --red: #ff8a80; --red-soft: #3a1f1d;
-    --green: #8fd19e; --green-soft: #1d3322; --yellow: #f3d36b; --yellow-soft: #3a3217;
-    --shadow: none;
+    --paper: #12201A; --sheet: #182A22; --rule: #26392F; --rule-strong: #3B5547;
+    --ink: #E6EFE8; --ink-soft: #A7B9AD; --pen: #FF7A80; --tick: #6BD497;
+    --tick-soft: #1F3A2B; --pen-soft: #3A2226; --marker: #8C7524;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #121516; --surface: #1b1f21; --text: #e7ebec; --muted: #9aa6ab; --line: #2a3033;
-  --accent: #7cc4bc; --accent-soft: #1f3331; --red: #ff8a80; --red-soft: #3a1f1d;
-  --green: #8fd19e; --green-soft: #1d3322; --yellow: #f3d36b; --yellow-soft: #3a3217;
-  --shadow: none;
+  --paper: #12201A; --sheet: #182A22; --rule: #26392F; --rule-strong: #3B5547;
+  --ink: #E6EFE8; --ink-soft: #A7B9AD; --pen: #FF7A80; --tick: #6BD497;
+  --tick-soft: #1F3A2B; --pen-soft: #3A2226; --marker: #8C7524;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
-body { margin: 0; background: var(--bg); color: var(--text);
-  font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-a { color: var(--accent); }
-.wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
-section { padding: 112px 0; }
-section + section { border-top: 1px solid var(--line); }
-h1 { font-size: clamp(2rem, 5vw, 3.3rem); line-height: 1.12; letter-spacing: -.02em; margin: 0 0 20px; max-width: 18ch; }
-h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); letter-spacing: -.01em; margin: 0 0 40px; }
-.lead { font-size: 1.2rem; color: var(--muted); max-width: 46ch; margin: 0 0 36px; }
-.muted { color: var(--muted); } .small { font-size: .9rem; }
-.icon { width: 26px; height: 26px; flex: none; }
-
-/* hero */
-.hero { padding-top: 96px; }
-.buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
-.btn { display: inline-block; padding: 12px 20px; border-radius: 999px; text-decoration: none;
-  border: 1px solid var(--line); color: var(--text); background: var(--surface); font-weight: 600; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-.fiction { display: inline-block; font-size: .85rem; color: var(--muted); border: 1px dashed var(--line);
-  padding: 4px 12px; border-radius: 999px; }
-.theme { position: fixed; top: 16px; right: 16px; z-index: 5; background: var(--surface); color: var(--text);
-  border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: .85rem; cursor: pointer; }
-
-/* problem */
-.problem { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 16px; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px;
-  box-shadow: var(--shadow); font-weight: 600; font-size: 1.1rem; }
-.card .icon { color: var(--accent); display: block; margin-bottom: 14px; }
-.then { color: var(--muted); font-size: 1.4rem; }
-
-/* steps */
-.steps { list-style: none; padding: 0; margin: 0 0 24px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
-.step { width: 100%; height: 100%; text-align: left; cursor: pointer; background: var(--surface); color: var(--text);
-  border: 1px solid var(--line); border-radius: 14px; padding: 16px 14px; font: inherit;
-  display: flex; flex-direction: column; gap: 8px; transition: border-color .2s, transform .2s; }
-.step:hover { transform: translateY(-2px); }
-.step.active { border-color: var(--accent); background: var(--accent-soft); }
-.step .icon { color: var(--accent); }
-.step-n { font-size: .75rem; color: var(--muted); font-weight: 700; }
-.step-title { font-weight: 700; line-height: 1.25; }
-.step-line { font-size: .85rem; color: var(--muted); line-height: 1.35; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px 28px; box-shadow: var(--shadow); }
-.panel p { margin: 0 0 12px; }
-.hint { font-size: .85rem; color: var(--muted); margin: 0 0 16px; }
-
-/* tables, badges, chips */
-table.mini { border-collapse: collapse; width: 100%; font-size: .95rem; }
-table.mini th, table.mini td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
-table.mini th { color: var(--muted); font-weight: 600; font-size: .8rem; }
-.num { text-align: right !important; font-variant-numeric: tabular-nums; }
-.badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
-.badge.red { background: var(--red-soft); color: var(--red); }
-.badge.green { background: var(--green-soft); color: var(--green); }
-.badge.yellow { background: var(--yellow-soft); color: var(--yellow); }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { background: var(--accent-soft); color: var(--text); border-radius: 999px; padding: 6px 14px; font-size: .95rem; }
-.packet { background: #fff; color: #1b1b1b; border-radius: 12px; padding: 12px; overflow-x: auto; border: 1px solid var(--line); }
-.packet table { font-size: .85rem; width: 100%; }
-.task { display: inline-flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line);
-  border-left: 4px solid #7b68ee; border-radius: 10px; padding: 10px 14px; font-weight: 600; }
-.task .icon { color: #7b68ee; width: 20px; height: 20px; }
-.quote { border-left: 3px solid var(--accent); padding-left: 14px; }
-
-/* timeline */
-.pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 40px; }
-.pill { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px;
-  padding: 8px 16px; font: inherit; font-size: .95rem; cursor: pointer; }
-.pill.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-.timeline { list-style: none; margin: 0; padding: 0 0 0 28px; border-left: 2px solid var(--line); max-width: 760px; }
-.timeline > li { position: relative; margin: 0 0 44px; }
-.timeline .dot { position: absolute; left: -37px; top: 6px; width: 16px; height: 16px; border-radius: 50%;
-  background: var(--surface); border: 3px solid var(--accent); }
-.timeline .dot.red { border-color: var(--red); } .timeline .dot.green { border-color: var(--green); }
-.t-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700;
-  margin: 0 0 10px; display: flex; gap: 8px; align-items: center; }
-.t-label .icon { width: 18px; height: 18px; }
-.big { font-size: 1.3rem; font-weight: 700; margin: 0 0 6px; }
-.arrow { font-variant-numeric: tabular-nums; }
-.email { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; box-shadow: var(--shadow); }
-.email p { margin: 0 0 12px; }
-.past { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; font-size: .92rem; }
-.past .label { display: block; font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 4px; }
-.link-note { color: var(--accent); font-weight: 600; margin: 0 !important; }
-.answers { margin: 0; display: grid; gap: 4px 20px; grid-template-columns: max-content 1fr; }
-.answers dt { font-weight: 700; } .answers dd { margin: 0 0 10px; color: var(--muted); }
-.calm { max-width: 760px; }
-
-/* trust, results, why */
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: var(--shadow); font-weight: 600; }
-.tile .icon { color: var(--accent); display: block; margin-bottom: 14px; }
-.tile .sub { display: block; font-weight: 400; color: var(--muted); font-size: .9rem; margin-top: 6px; }
-.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
-.metric { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px;
-  display: flex; flex-direction: column; box-shadow: var(--shadow); }
-.metric-n { font-size: 2rem; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
-.why p { font-size: 1.15rem; max-width: 60ch; margin: 0 0 18px; }
-footer { padding: 48px 0 64px; border-top: 1px solid var(--line); color: var(--muted); }
-footer .links { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 10px; }
-
-/* gentle reveal on scroll (content is visible without JS) */
-.js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
-.js .reveal.seen { opacity: 1; transform: none; }
-
-@media (max-width: 860px) {
-  section { padding: 80px 0; }
-  .steps { grid-template-columns: 1fr; }
-  .step { flex-direction: row; align-items: center; flex-wrap: wrap; }
-  .step-line { flex-basis: 100%; }
-  .problem { grid-template-columns: 1fr; }
-  .then { transform: rotate(90deg); justify-self: center; }
-  .tiles { grid-template-columns: 1fr 1fr; }
-  .answers { grid-template-columns: 1fr; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 17px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
-@media (max-width: 520px) { .tiles { grid-template-columns: 1fr; } body { font-size: 16px; } }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--tick); outline-offset: 3px; border-radius: 4px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+h1, h2, h3 { font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif; letter-spacing: -0.02em; margin: 0; }
+h2 { font-size: clamp(28px, 3.2vw, 38px); font-weight: 800; line-height: 1.1; }
+.lede { color: var(--ink-soft); max-width: 60ch; margin: 10px 0 0; }
+.hand { font-family: "Caveat", cursive; font-weight: 700; color: var(--pen); line-height: 1; }
+section { padding: 72px 0; }
+section + section { border-top: 1px solid var(--rule); }
+
+/* ---------- top bar ---------- */
+.bar { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; font-size: 15px; }
+.brand { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.01em; text-decoration: none; }
+.brand span { color: var(--tick); }
+.bar nav { display: flex; gap: 18px; align-items: center; }
+.bar nav a { text-decoration: none; color: var(--ink-soft); }
+.bar nav a:hover { color: var(--ink); }
+.theme { background: none; border: 1px solid var(--rule-strong); color: var(--ink-soft); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+
+/* ---------- hero ---------- */
+.hero { padding: 36px 0 76px; border-top: 0; }
+.hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 56px; align-items: center; }
+.hero h1 { font-size: clamp(38px, 4.6vw, 60px); font-weight: 800; line-height: 1.02; }
+.hero h1 .quiet { display: block; color: var(--ink-soft); font: 400 clamp(19px, 1.6vw, 22px)/1.45 "IBM Plex Sans", sans-serif; margin-top: 18px; letter-spacing: 0; max-width: 40ch; }
+.who { margin-top: 26px; display: grid; gap: 10px; max-width: 46ch; }
+.who div { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; color: var(--ink-soft); }
+.who svg { margin-top: 3px; }
+.who b { color: var(--ink); font-weight: 600; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 16px; border: 1.5px solid var(--ink); }
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn.ghost { color: var(--ink); }
+.btn:hover { transform: translateY(-1px); }
+.fiction { margin-top: 18px; font-size: 14px; color: var(--ink-soft); }
+
+/* the scorecard sheet */
+.sheet { position: relative; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: var(--shadow); margin-bottom: 40px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 20px 12px; border-bottom: 2px solid var(--ink); background: var(--sheet); border-radius: 6px 6px 0 0; }
+.sheet-head h3 { font-size: 19px; font-weight: 700; }
+.sheet-head small { color: var(--ink-soft); font-size: 14px; }
+.score { width: 100%; border-collapse: collapse; font-size: 15px; }
+.score th { text-align: left; font-weight: 500; font-size: 13px; color: var(--ink-soft); padding: 10px 20px 8px; }
+.score th.num, .score td.num { text-align: right; }
+.score td { padding: 0 20px; height: 44px; border-bottom: 1px solid var(--rule); }
+.score tr:last-child td { border-bottom: 0; }
+.score td.kpi { font-weight: 500; }
+.score td.mark { width: 44px; text-align: center; padding: 0 10px 0 0; }
+.score tr.red td { color: var(--pen); font-weight: 600; }
+.tickmark path { stroke: var(--tick); stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.flag { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--pen); color: #fff; font: 700 14px/22px "IBM Plex Sans"; }
+.ring { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.ring path { stroke: var(--pen); stroke-width: 2.4; fill: none; stroke-linecap: round; }
+.note { position: absolute; font-size: 26px; transform: rotate(-4deg); white-space: nowrap; }
+.sheet-foot { padding: 12px 20px; font-size: 14px; color: var(--ink-soft); border-top: 1px solid var(--rule-strong); display: flex; justify-content: space-between; gap: 12px; background: var(--sheet); border-radius: 0 0 6px 6px; }
+
+/* one orchestrated load moment */
+@media (prefers-reduced-motion: no-preference) {
+  .anim .tickmark path { stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw .35s ease-out forwards; }
+  .anim .ring path { stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 1s ease-in-out 1.9s forwards; }
+  .anim .ring #ring-tail { stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw .4s ease-out 2.8s forwards; }
+  .anim .note { opacity: 0; animation: fade .4s ease-out 3.1s forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes fade { to { opacity: 1; } }
+}
+
+/* ---------- checklist (problem + solution in one) ---------- */
+.list-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 56px; align-items: start; }
+.legend { margin-top: 26px; display: grid; gap: 12px; font-size: 15px; color: var(--ink-soft); }
+.legend div { display: flex; gap: 12px; align-items: center; }
+.legend .sw-auto { width: 34px; height: 2px; background: var(--pen); border-radius: 2px; }
+.legend .sw-human { width: 30px; height: 18px; border: 2px solid var(--tick); border-radius: 50%; }
+.todo { list-style: none; margin: 0; padding: 8px 0; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: var(--shadow); }
+.todo li { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 12px 22px; border-bottom: 1px solid var(--rule); }
+.todo li:last-child { border-bottom: 0; }
+.box { width: 18px; height: 18px; border: 1.5px solid var(--rule-strong); border-radius: 4px; }
+.todo .task { position: relative; justify-self: start; }
+.todo li.auto .task { color: var(--ink-soft); }
+.todo li.auto .task { text-decoration: line-through; text-decoration-color: var(--pen); text-decoration-thickness: 2px; }
+.todo li.human .task { font-weight: 600; padding: 2px 10px; margin-left: -10px; border: 2px solid var(--tick); border-radius: 50% / 60%; }
+.todo .say { font-size: 24px; white-space: nowrap; }
+.todo li.human .say { color: var(--tick); }
+.per-client { margin: 18px 0 0; font-size: 15px; color: var(--ink-soft); }
+
+/* ---------- one week, step by step ---------- */
+.week-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
+.track { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); margin: 34px 0 0; padding: 0; list-style: none; }
+.track::before { content: ""; position: absolute; left: 7%; right: 7%; top: 21px; height: 2px; background: var(--rule-strong); }
+.track button { all: unset; cursor: pointer; display: grid; justify-items: center; text-align: center; gap: 8px; padding: 0 6px 6px; position: relative; }
+.dot { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--sheet); border: 2px solid var(--ink); font: 700 15px "Bricolage Grotesque"; color: var(--ink); position: relative; z-index: 1; }
+.track .human .dot { border-color: var(--tick); color: var(--tick); border-style: dashed; }
+.when { font-size: 13px; color: var(--ink-soft); }
+.what { font-size: 14.5px; font-weight: 600; line-height: 1.25; max-width: 13ch; }
+.track button[aria-selected="true"] .dot { background: var(--ink); color: var(--paper); border-style: solid; }
+.track .human button[aria-selected="true"] .dot { background: var(--tick); border-color: var(--tick); color: #fff; }
+.track button:hover .dot { transform: scale(1.06); }
+.stage { margin-top: 26px; display: grid; grid-template-columns: .8fr 1.2fr; gap: 40px; align-items: start; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 8px; padding: 30px; box-shadow: var(--shadow); min-height: 340px; }
+.stage .tag { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule-strong); }
+.stage .tag.human { color: var(--tick); border-color: var(--tick); background: var(--tick-soft); }
+.stage h3 { font-size: 26px; font-weight: 700; margin: 14px 0 8px; line-height: 1.15; }
+.stage p { margin: 0 0 10px; color: var(--ink-soft); }
+.nav-steps { display: flex; gap: 10px; margin-top: 18px; }
+.nav-steps button { font: 600 14px "IBM Plex Sans"; color: var(--ink); background: none; border: 1.5px solid var(--rule-strong); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.nav-steps button:disabled { opacity: .4; cursor: default; }
+
+/* artifacts shown in the stage */
+.art { background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; font-size: 15px; }
+.art .label { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
+.src { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.src .pill { padding: 8px 12px; border-radius: 8px; background: var(--sheet); border: 1px solid var(--rule-strong); font-weight: 600; font-size: 14px; }
+.mini { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.mini td { padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.mini tr:last-child td { border-bottom: 0; }
+.mini td.num { text-align: right; }
+.mini tr.red td { color: var(--pen); font-weight: 600; }
+.bars { display: grid; gap: 12px; }
+.bars .row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+.bars .name { font-weight: 600; }
+.bars .amt { color: var(--ink-soft); }
+.bars .track2 { grid-column: 1 / -1; height: 10px; border-radius: 6px; background: var(--rule); overflow: hidden; }
+.bars .fill { height: 100%; background: var(--pen); border-radius: 6px; }
+.bars .fill.down { background: var(--tick); }
+.jump { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.jump .from { color: var(--ink-soft); text-decoration: line-through; }
+.jump .to { font: 800 30px "Bricolage Grotesque"; color: var(--pen); }
+.mail { font-size: 15px; }
+.mail .hdr { display: grid; grid-template-columns: 64px 1fr; gap: 2px 8px; font-size: 14px; color: var(--ink-soft); padding-bottom: 10px; border-bottom: 1px solid var(--rule); margin-bottom: 10px; }
+.mail .hdr b { color: var(--ink); font-weight: 600; }
+.mail p { margin: 0 0 8px; color: var(--ink); }
+.mail .past { border-left: 3px solid var(--rule-strong); padding: 4px 0 4px 12px; color: var(--ink-soft); font-size: 14px; }
+.mail .link { display: inline-block; margin-top: 4px; padding: 7px 12px; border-radius: 8px; background: var(--ink); color: var(--paper); font-weight: 600; font-size: 14px; }
+.qa { display: grid; gap: 12px; }
+.qa div { display: grid; gap: 2px; }
+.qa dt { font-size: 13px; color: var(--ink-soft); }
+.qa dd { margin: 0; }
+.qa mark { background: linear-gradient(transparent 55%, var(--marker) 55%); color: inherit; padding: 0 2px; }
+.checked { display: flex; gap: 10px; align-items: center; margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--tick-soft); color: var(--tick); font-weight: 600; font-size: 14px; }
+.stamp { display: inline-block; transform: rotate(-6deg); border: 3px solid var(--tick); color: var(--tick); border-radius: 8px; padding: 10px 16px; font: 800 22px "Bricolage Grotesque"; letter-spacing: .04em; margin: 4px 0 14px; }
+.stamp small { display: block; font: 500 13px "IBM Plex Sans"; letter-spacing: 0; }
+.task-card { border: 1px solid var(--rule-strong); border-left: 4px solid #7B68EE; border-radius: 6px; padding: 12px 14px; background: var(--sheet); margin-top: 12px; }
+.task-card b { display: block; }
+.task-card span { font-size: 13px; color: var(--ink-soft); }
+.once { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.once div { flex: 1 1 140px; padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--rule-strong); font-size: 14px; }
+.once b { display: block; }
+
+/* ---------- other clients ---------- */
+.clients { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 30px; }
+.client { background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; padding: 22px 24px; box-shadow: var(--shadow); }
+.client h3 { font-size: 20px; }
+.client .sub { color: var(--ink-soft); font-size: 14px; margin: 2px 0 10px; }
+.client .verdict { margin-top: 14px; font-size: 24px; }
+.client .verdict.green { color: var(--tick); }
+.qb { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.qb div { padding: 10px 12px; background: var(--paper); border-radius: 6px; border: 1px solid var(--rule); }
+.qb b { display: block; font: 700 22px "Bricolage Grotesque"; }
+.qb span { font-size: 13px; color: var(--ink-soft); }
+
+/* ---------- trust + results ---------- */
+.trust-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
+.rules { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 16px; }
+.rules li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; }
+.rules b { display: block; }
+.rules span { color: var(--ink-soft); font-size: 15px; }
+.audit { background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: var(--shadow); padding: 8px 0; margin-top: 22px; }
+.audit div { display: grid; grid-template-columns: 1fr auto 32px; gap: 12px; align-items: center; padding: 11px 22px; border-bottom: 1px solid var(--rule); }
+.audit div:last-child { border-bottom: 0; }
+.audit strong { font: 700 20px "Bricolage Grotesque"; }
+.small { font-size: 14px; color: var(--ink-soft); margin-top: 12px; }
+
+/* ---------- why ---------- */
+.why { display: grid; grid-template-columns: .9fr 1.1fr; gap: 56px; align-items: start; }
+.why p { margin: 0 0 14px; max-width: 58ch; }
+.stack { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.stack span { font-size: 14px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--rule-strong); background: var(--sheet); }
+footer { padding: 36px 0 48px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--ink-soft); }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+footer nav { display: flex; gap: 18px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 960px) {
+  .hero-grid, .list-grid, .trust-grid, .why, .stage { grid-template-columns: 1fr; gap: 32px; }
+  .clients { grid-template-columns: 1fr; }
+  .track { grid-template-columns: 1fr; gap: 6px; }
+  .track::before { left: 21px; right: auto; top: 0; bottom: 0; width: 2px; height: auto; }
+  .track button { grid-template-columns: 44px 1fr; justify-items: start; text-align: left; align-items: center; column-gap: 14px; row-gap: 0; padding: 4px 0; }
+  .track .dot { grid-row: span 2; }
+  .what { max-width: none; }
+  .note, #ring-tail { display: none; }
+}
+@media (max-width: 560px) {
+  .wrap { padding: 0 16px; }
+  section { padding: 52px 0; }
+  .bar nav a.hide-sm { display: none; }
+  .score th:nth-child(3), .score td:nth-child(3) { display: none; }
+  .score td, .score th { padding-left: 12px; padding-right: 12px; }
+  .stage { padding: 20px; }
+  .qb { grid-template-columns: 1fr 1fr; }
+  .todo li { grid-template-columns: 24px 1fr; padding: 12px 16px; }
+  .todo .say { grid-column: 2; font-size: 20px; }
+  .todo li.human .task { border-radius: 16px; }
+}
 </style>
 </head>
 <body>
-<button class="theme" id="theme" type="button" aria-label="Switch light or dark mode">Light / dark</button>
+<div class="wrap">
+  <header class="bar">
+    <a class="brand" href="#top">KPI Scorecard <span>Autopilot</span></a>
+    <nav>
+      <a class="hide-sm" href="#week">How it works</a>
+      <a class="hide-sm" href="https://github.com/subritii/kpi-scorecard-autopilot">GitHub</a>
+      <button class="theme" id="theme" type="button" aria-label="Switch light or dark theme">Dark</button>
+    </nav>
+  </header>
+</div>
 
-<section class="hero"><div class="wrap reveal">
-  <h1>Weekly client KPI reports, built, explained and approved automatically.</h1>
-  <p class="lead">Numbers come from code, explanations from people, and nothing goes out until a Controller approves it.</p>
-  <div class="buttons">
-    <a class="btn primary" href="#how">See how it works ↓</a>
-    <a class="btn" href="#">Watch the 2-min demo</a>
-    <a class="btn" href="https://github.com/subritii/kpi-scorecard-autopilot">GitHub</a>
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>The weekly KPI scorecard, done before the Monday coffee.
+          <span class="quiet">It finds what's off target, asks the person who owns it, and waits for the Controller's sign-off.</span>
+        </h1>
+        <div class="who">
+          <div><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2" y="3" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9h10M6 13h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Code</b> pulls the numbers and does all the math.</span></div>
+          <div><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 19c1.2-3.6 4.1-5.2 7.5-5.2s6.3 1.6 7.5 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Owners</b> explain why a number moved.</span></div>
+          <div><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M5 11.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>The Controller</b> approves before anything reaches a client.</span></div>
+        </div>
+        <div class="cta">
+          <a class="btn primary" href="#">Watch the 2-minute demo</a>
+          <a class="btn ghost" href="#week">Walk through one week</a>
+        </div>
+        <p class="fiction">Every company, person and number on this page is fictional.</p>
+      </div>
+
+      <div class="sheet anim" id="sheet" aria-label="Example scorecard">
+        <div class="sheet-head"><h3 id="sheet-client"></h3><small id="sheet-week"></small></div>
+        <table class="score">
+          <thead><tr><th>KPI</th><th class="num">This week</th><th class="num">Target</th><th class="num" aria-label="Status"></th></tr></thead>
+          <tbody id="sheet-rows"></tbody>
+        </table>
+        <div class="sheet-foot"><span id="sheet-foot-left"></span><span>Built Monday 6:00</span></div>
+        <svg class="ring" id="ring" aria-hidden="true"><path id="ring-path"/><path id="ring-tail"/></svg>
+        <div class="note hand" id="note" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="grind">
+    <div class="wrap list-grid">
+      <div>
+        <h2>A Controller's Monday, for every client</h2>
+        <p class="lede">The same eight jobs, for each of five to seven clients, every week. Six of them are routine. Two need a person, so they stay with people.</p>
+        <div class="legend">
+          <div><span class="sw-auto"></span>Struck through: the automation does it</div>
+          <div><span class="sw-human"></span>Circled: a person still does it</div>
+        </div>
+      </div>
+      <ol class="todo" id="todo"></ol>
+    </div>
+  </section>
+
+  <section id="week">
+    <div class="wrap">
+      <div class="week-head">
+        <div>
+          <h2>Follow one week at Brightline Services</h2>
+          <p class="lede">Week of Aug 3, 2026. Pick any step to see what actually happened.</p>
+        </div>
+      </div>
+      <ol class="track" id="track" role="tablist" aria-label="Steps in one week"></ol>
+      <div class="stage" id="stage" role="tabpanel" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="others">
+    <div class="wrap">
+      <h2>Same week, other clients</h2>
+      <p class="lede">Most weeks, most numbers are fine. Nobody gets an email unless something is off target.</p>
+      <div class="clients">
+        <article class="client" id="northgate"></article>
+        <article class="client" id="sandbox"></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="trust">
+    <div class="wrap trust-grid">
+      <div>
+        <h2>Built so accountants can trust it</h2>
+        <ul class="rules">
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>The math is code, never AI</b><span>Every KPI is calculated by tested code with exact decimals.</span></div></li>
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>AI says what moved, never why</b><span>Every sentence it writes is checked against the books. Reasons come from owners.</span></div></li>
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>Approved first, sent once</b><span>Nothing reaches a client without the Controller, and never twice.</span></div></li>
+          <li><svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-hidden="true"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg><div><b>Each client's books stay separate</b><span>The database itself keeps clients apart, and the AI runs locally, so client data stays in-house.</span></div></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Checked against an answer key</h2>
+        <div class="audit" id="audit"></div>
+        <p class="small">Measured on synthetic data with planted problems whose answers are known. It shows the system does what it was designed to do, not how it would score on messy real books.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap why">
+      <h2>Why I built this</h2>
+      <div>
+        <p>Fractional CFO firms run the same weekly KPI review for every client, and much of it is copy, paste and chase. I wanted to automate that routine with tools these firms already use, while keeping accountants in control of every judgment call.</p>
+        <p>I built it with Claude Code assistance. I designed the workflow, the safeguards, the tests and the evaluation, and checked the QuickBooks pull against QuickBooks' own report.</p>
+        <div class="stack"><span>n8n</span><span>QuickBooks Online</span><span>ClickUp</span><span>Python + FastAPI</span><span>Postgres</span><span>Local AI (Ollama)</span></div>
+        <div class="cta">
+          <a class="btn primary" href="#">Watch the demo</a>
+          <a class="btn ghost" href="https://github.com/subritii/kpi-scorecard-autopilot">Read the code</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Subriti Pradhan. All data on this page is fictional.</span>
+    <nav><a href="#">Demo video</a><a href="https://github.com/subritii/kpi-scorecard-autopilot">GitHub</a><a href="#">LinkedIn</a></nav>
   </div>
-  <span class="fiction">All companies, people and numbers are fictional.</span>
-</div></section>
+</footer>
 
-<section><div class="wrap reveal">
-  <h2>The weekly grind</h2>
-  <div class="problem">
-    <div class="card"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-5 4 5 4M16 8l5 4-5 4M14 5l-4 14"/></svg>Numbers pulled by hand for every client</div>
-    <span class="then" aria-hidden="true">→</span>
-    <div class="card"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h0"/></svg>Chasing owners to explain red numbers</div>
-    <span class="then" aria-hidden="true">→</span>
-    <div class="card"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>The same report rebuilt every week</div>
-  </div>
-</div></section>
-
-<section id="how"><div class="wrap reveal">
-  <h2>How it works</h2>
-  <p class="hint">Tap a step to see it in the example week (Brightline Services, week of Aug 3, 2026).</p>
-  <ol class="steps"><li><button class="step active" data-step="0" aria-controls="step-panel" aria-pressed="true"><span class="step-n">1</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span class="step-title">Data in</span><span class="step-line">QuickBooks and the sales sheet, every Monday.</span></button></li><li><button class="step" data-step="1" aria-controls="step-panel" aria-pressed="false"><span class="step-n">2</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M8 18h8"/></svg><span class="step-title">KPIs computed</span><span class="step-line">Tested code, exact decimals.</span></button></li><li><button class="step" data-step="2" aria-controls="step-panel" aria-pressed="false"><span class="step-n">3</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h0"/></svg><span class="step-title">Off-target spotted</span><span class="step-line">And what moved it.</span></button></li><li><button class="step" data-step="3" aria-controls="step-panel" aria-pressed="false"><span class="step-n">4</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span class="step-title">Owner asked</span><span class="step-line">A short AI note and a reply form.</span></button></li><li><button class="step" data-step="4" aria-controls="step-panel" aria-pressed="false"><span class="step-n">5</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg><span class="step-title">Packet built</span><span class="step-line">Every AI sentence fact-checked.</span></button></li><li><button class="step" data-step="5" aria-controls="step-panel" aria-pressed="false"><span class="step-n">6</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span class="step-title">Controller approves</span><span class="step-line">Nothing goes out before this.</span></button></li><li><button class="step" data-step="6" aria-controls="step-panel" aria-pressed="false"><span class="step-n">7</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 21 3l-8 18-2-8-8-2Z"/></svg><span class="step-title">Sent once</span><span class="step-line">And logged in ClickUp.</span></button></li></ol>
-  <div id="step-panel"><div class="panel" data-panel="0"><p>Each client's accounting reports and sales sheet are loaded for the week. Sandbox Co's AR aging comes live from a QuickBooks sandbox (16 customers).</p></div><div class="panel" data-panel="1" hidden><p class='muted'>Brightline Services, week of Aug 3, 2026</p><table class='mini'><thead><tr><th>KPI</th><th class='num'>This week</th><th class='num'>Target</th><th></th></tr></thead><tbody><tr><td>Weekly Revenue</td><td class='num'>173769.50</td><td class='num muted'>$155,000.00</td><td><span class="badge green">green</span></td></tr><tr><td>Gross Margin %</td><td class='num'>47.0</td><td class='num muted'>42.0%</td><td><span class="badge green">green</span></td></tr><tr><td>Cash on Hand</td><td class='num'>548601.43</td><td class='num muted'>$400,000.00</td><td><span class="badge green">green</span></td></tr><tr><td>AR Over 60 Days</td><td class='num'>114983.12</td><td class='num muted'>$90,000.00</td><td><span class="badge red">red</span></td></tr><tr><td>New Bookings</td><td class='num'>194377.78</td><td class='num muted'>$170,000.00</td><td><span class="badge green">green</span></td></tr></tbody></table></div><div class="panel" data-panel="2" hidden><p><strong>AR Over 60 Days</strong> $57K → $115K <span class="badge red">red</span></p><div class='chips'><span class="chip">Ambercrest <strong>54%</strong></span><span class="chip">Larkspur <strong>43%</strong></span></div></div><div class="panel" data-panel="3" hidden><p class='muted'>To avery.chen@brightline.example</p><p><strong>Week of Aug 3, 2026: AR Over 60 Days needs your input</strong></p><p class='quote'>The KPI AR Over 60 Days moved from $57,234.06 to $114,983.12.
-
-The change was driven by Ambercrest Logistics and Larkspur Clinics, with Ambercrest Logistics contributing the largest share of the movement. Orchard Vale Architects had a minor decrease.</p></div><div class="panel" data-panel="4" hidden><p><span class="badge green">green</span> Fact-check passed</p><div class='packet'><table style="border-collapse:collapse"><tr><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">KPI</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">This week</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Last week</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Change</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Target</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Status</th></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Weekly Revenue</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$173,769.50</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$174,408.81</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">-$639.31</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$155,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Gross Margin %</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">47.0%</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">48.3%</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">-1.3 points</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">42.0%</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Cash on Hand</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$548,601.43</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$522,726.94</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">+$25,874.49</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$400,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">AR Over 60 Days</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$114,983.12</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$57,234.06</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">+$57,749.06</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$90,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#ffd6d6;color:#7a0000;font-weight:600">red</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">New Bookings</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$194,377.78</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$197,024.35</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">-$2,646.57</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$170,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr></table></div></div><div class="panel" data-panel="5" hidden><p>Approved by <strong>controller@ledgerline-cfo.example</strong> on a signed, single-use link.</p></div><div class="panel" data-panel="6" hidden><p class='muted'>To ceo@brightline.example, coo@brightline.example</p><div class='task'><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg><span>Brightline Services: week of Aug 3, 2026 packet sent</span></div></div></div>
-</div></section>
-
-<section><div class="wrap reveal">
-  <h2>Follow one week</h2>
-  <div class="pills" role="tablist">
-    <button class="pill active" data-client="brightline" role="tab" aria-selected="true">Brightline Services</button>
-    <button class="pill" data-client="northgate" role="tab" aria-selected="false">Northgate Supply</button>
-    <button class="pill" data-client="sandbox" role="tab" aria-selected="false">Sandbox Co</button>
-  </div>
-  <div data-view="brightline">
-      <ol class="timeline">
-        <li><span class="dot red"></span><div>
-          <p class="t-label">This week's numbers</p>
-          <p class="big">AR Over 60 Days <span class="arrow">$57K → $115K</span> <span class="badge red">red</span></p>
-          <p class="muted">Target $90,000.00 or less</p></div></li>
-        <li><span class="dot"></span><div>
-          <p class="t-label">What moved it</p><div class="chips"><span class="chip">Ambercrest <strong>54%</strong></span><span class="chip">Larkspur <strong>43%</strong></span></div></div></li>
-        <li><span class="dot"></span><div>
-          <p class="t-label">Avery gets an email</p>
-          <div class="email"><p class="muted">Week of Aug 3, 2026: AR Over 60 Days needs your input</p><p>The KPI AR Over 60 Days moved from $57,234.06 to $114,983.12.
-
-The change was driven by Ambercrest Logistics and Larkspur Clinics, with Ambercrest Logistics contributing the largest share of the movement. Orchard Vale Architects had a minor decrease.</p><p class='past'><span class='label'>Last year's similar case</span>What changed: AR over 60 days rose well above target for three weeks, then eased back as the balances were paid down. Why: Ambercrest Logistics and Mosswood Hospitality held payments while moving to a new AP system. Owner of fix: Avery Chen. Actions: weekly calls with both AP teams; one paid in full, the other in two installments.</p>
-          <p class="link-note">Reply form: four questions →</p></div></div></li>
-        <li><span class="dot"></span><div>
-          <p class="t-label">Avery answers</p><dl class="answers"><dt>What changed?</dt><dd>Two customers moved past 60 days: Ambercrest Logistics and Larkspur Clinics.</dd><dt>Why?</dt><dd>Both switched to new AP systems in July and our invoices got stuck in their approval queues.</dd><dt>Who owns the fix?</dt><dd>Avery Chen</dd><dt>What&#x27;s being done?</dt><dd>Called both AP teams this week; Ambercrest confirmed payment for Aug 14 and Larkspur for Aug 21. Weekly check-in until both clear.</dd></dl></div></li>
-        <li><span class="dot"></span><div>
-          <p class="t-label">The packet</p><div class="packet"><table style="border-collapse:collapse"><tr><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">KPI</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">This week</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Last week</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Change</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Target</th><th style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Status</th></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Weekly Revenue</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$173,769.50</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$174,408.81</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">-$639.31</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$155,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Gross Margin %</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">47.0%</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">48.3%</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">-1.3 points</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">42.0%</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">Cash on Hand</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$548,601.43</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$522,726.94</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">+$25,874.49</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$400,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">AR Over 60 Days</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$114,983.12</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$57,234.06</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">+$57,749.06</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$90,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#ffd6d6;color:#7a0000;font-weight:600">red</td></tr><tr><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">New Bookings</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$194,377.78</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$197,024.35</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">-$2,646.57</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left">$170,000.00</td><td style="padding:6px 10px;border:1px solid #dee2e6;text-align:left;background:#d8f3dc;color:#1b4332;font-weight:600">green</td></tr></table></div>
-          <p class="muted small">Owner answers are quoted word for word. Every AI sentence was fact-checked.</p></div></li>
-        <li><span class="dot lock"></span><div>
-          <p class="t-label"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> Can't be sent until the Controller approves</p>
-          <p>Approved by <strong>controller@ledgerline-cfo.example</strong></p></div></li>
-        <li><span class="dot green"></span><div>
-          <p class="t-label">Sent once</p><p class="muted">To ceo@brightline.example, coo@brightline.example</p>
-          <div class="task"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg><span>Brightline Services: week of Aug 3, 2026 packet sent</span></div></div></li>
-      </ol></div>
-  <div data-view="northgate" hidden>
-      <div class="calm"><p class="big">All green: nobody gets bothered.</p>
-      <p class="muted">Northgate Supply, week of Aug 3, 2026</p><table class='mini'><thead><tr><th>KPI</th><th class='num'>This week</th><th class='num'>Target</th><th></th></tr></thead><tbody><tr><td>Weekly Revenue</td><td class='num'>254507.27</td><td class='num muted'>$230,000.00</td><td><span class="badge green">green</span></td></tr><tr><td>Gross Margin %</td><td class='num'>31.3</td><td class='num muted'>28.0%</td><td><span class="badge green">green</span></td></tr><tr><td>Cash on Hand</td><td class='num'>801457.76</td><td class='num muted'>$600,000.00</td><td><span class="badge green">green</span></td></tr><tr><td>AR Over 60 Days</td><td class='num'>98073.41</td><td class='num muted'>$150,000.00</td><td><span class="badge green">green</span></td></tr><tr><td>Inventory Days</td><td class='num'>38.3</td><td class='num muted'>45.0 days</td><td><span class="badge green">green</span></td></tr></tbody></table></div></div>
-  <div data-view="sandbox" hidden>
-      <div class="calm"><p class="big">Live QuickBooks sandbox data, same checks.</p>
-      <p class="muted">Sandbox Co, week of Oct 19, 2026: 16 customers from the AR aging report</p>
-      <table class='mini'><thead><tr><th>KPI</th><th class='num'>This week</th><th class='num'>Target</th><th></th></tr></thead><tbody><tr><td>AR Over 60 Days</td><td class='num'>156.00</td><td class='num muted'>$5,000.00</td><td><span class="badge green">green</span></td></tr></tbody></table>
-      <p class="muted small">AR 61-90 days $156.00, 91+ days $0.00: AR Over 60 Days is green.</p></div></div>
-</div></section>
-
-<section><div class="wrap reveal">
-  <h2>Why you can trust it</h2>
-  <div class="tiles">
-    <div class="tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-5 4 5 4M16 8l5 4-5 4M14 5l-4 14"/></svg>Math in tested code, never the AI</div>
-    <div class="tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h0"/></svg>AI says what moved, never why<span class="sub">A fact-checker rejects anything that doesn't match the data.</span></div>
-    <div class="tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Human approval required, sent exactly once</div>
-    <div class="tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z"/></svg>Each client's data isolated; AI runs locally</div>
-  </div>
-</div></section>
-
-<section><div class="wrap reveal">
-  <h2>Results</h2>
-  <div class="metrics"><div class="metric"><span class="metric-n">120/120</span><span>KPI statuses right</span></div><div class="metric"><span class="metric-n">0</span><span>false alarms</span></div><div class="metric"><span class="metric-n">10/10</span><span>top drivers found</span></div><div class="metric"><span class="metric-n">7/7</span><span>packets pass the fact-check</span></div><div class="metric"><span class="metric-n">0</span><span>cross-client leaks</span></div></div>
-  <p class="muted small">Measured on synthetic data built around planted events (late payments, a price increase, a seasonal dip, an overstock).</p>
-</div></section>
-
-<section class="why"><div class="wrap reveal">
-  <h2>Why I built it</h2>
-  <p>Fractional CFO firms run the same weekly KPI review for every client, and much of it is copy, paste and chase.</p>
-  <p>I wanted to automate that routine with the tools these firms already use (QuickBooks, ClickUp, n8n) while keeping accountants in control.</p>
-  <p>Built with Claude Code assistance; I designed the workflow, the tests and the evaluation.</p>
-</div></section>
-
-<footer><div class="wrap">
-  <div class="links"><a href="#">Demo video</a><a href="https://github.com/subritii/kpi-scorecard-autopilot">GitHub</a><a href="#">LinkedIn</a></div>
-  <div>All data fictional.</div>
-</div></footer>
-
+<script id="demo-data" type="application/json">{"brightline":{"client_name":"Brightline Services","week_label":"Aug 3, 2026","reply":{"what_changed":"Two customers moved past 60 days: Ambercrest Logistics and Larkspur Clinics.","why":"Both switched to new AP systems in July and our invoices got stuck in their approval queues.","owner_of_fix":"Avery Chen","actions":"Called both AP teams this week; Ambercrest confirmed payment for Aug 14 and Larkspur for Aug 21. Weekly check-in until both clear."},"packet_passed_check":true,"kpis":[{"name":"Weekly Revenue","formula_key":"weekly_revenue","value":"173769.50","prior":"$174,408.81","target":"$155,000.00","status":"green"},{"name":"Gross Margin %","formula_key":"gross_margin_pct","value":"47.0","prior":"48.3%","target":"42.0%","status":"green"},{"name":"Cash on Hand","formula_key":"cash_on_hand","value":"548601.43","prior":"$522,726.94","target":"$400,000.00","status":"green"},{"name":"AR Over 60 Days","formula_key":"ar_over_60","value":"114983.12","prior":"$57,234.06","target":"$90,000.00","status":"red"},{"name":"New Bookings","formula_key":"new_bookings","value":"194377.78","prior":"$197,024.35","target":"$170,000.00","status":"green"}],"red_kpi":{"name":"AR Over 60 Days","owner_name":"Avery Chen","owner_email":"avery.chen@brightline.example"},"drivers":[{"name":"Ambercrest Logistics","change":"+$32,743.28","share":"54.1%"},{"name":"Larkspur Clinics","change":"+$26,156.71","share":"43.2%"},{"name":"Orchard Vale Architects","change":"-$628.60","share":"1.0%"}],"owner_email":{"subject":"Week of Aug 3, 2026: AR Over 60 Days needs your input"},"observation":"The KPI AR Over 60 Days moved from $57,234.06 to $114,983.12.","approval":{"approver":"controller@ledgerline-cfo.example","decided_at":"2026-10-23 16:56 UTC"},"packet_email":{"to":["ceo@brightline.example","coo@brightline.example"]},"clickup_task":{"name":"Brightline Services: week of Aug 3, 2026 packet sent"}},"northgate":{"client_name":"Northgate Supply","week_label":"Aug 3, 2026","kpis":[{"name":"Weekly Revenue","formula_key":"weekly_revenue","value":"254507.27","prior":"$253,217.89","target":"$230,000.00","status":"green"},{"name":"Gross Margin %","formula_key":"gross_margin_pct","value":"31.3","prior":"30.6%","target":"28.0%","status":"green"},{"name":"Cash on Hand","formula_key":"cash_on_hand","value":"801457.76","prior":"$806,268.02","target":"$600,000.00","status":"green"},{"name":"AR Over 60 Days","formula_key":"ar_over_60","value":"98073.41","prior":"$96,029.10","target":"$150,000.00","status":"green"},{"name":"Inventory Days","formula_key":"inventory_days","value":"38.3","prior":"37.4 days","target":"45.0 days","status":"green"}]},"sandbox":{"client_name":"Sandbox Co","as_of":"2026-10-22","customers":16,"totals":{"ar_61_90":"156.00","ar_90_plus":"0.00"},"kpis":[{"name":"AR Over 60 Days","formula_key":"ar_over_60","value":"156.00","prior":"no data","target":"$5,000.00","status":"green"}]}}</script>
 <script>
 (function () {
-  var root = document.documentElement;
-  root.classList.add("js");
-  // Theme: follows the system unless chosen; ?theme=dark|light also works (screenshots).
-  var param = new URLSearchParams(location.search).get("theme");
-  var saved = null;
-  try { saved = localStorage.getItem("theme"); } catch (e) {}
-  if (param === "dark" || param === "light") root.dataset.theme = param;
-  else if (saved) root.dataset.theme = saved;
-  document.getElementById("theme").addEventListener("click", function () {
-    var dark = root.dataset.theme ? root.dataset.theme === "dark"
-      : matchMedia("(prefers-color-scheme: dark)").matches;
-    root.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
-  });
-  // Steps: one panel at a time.
-  document.querySelectorAll(".step").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      document.querySelectorAll(".step").forEach(function (b) {
-        b.classList.toggle("active", b === btn); b.setAttribute("aria-pressed", b === btn);
-      });
-      document.querySelectorAll(".panel").forEach(function (p) {
-        p.hidden = p.dataset.panel !== btn.dataset.step;
-      });
-    });
-  });
-  // Client pills.
-  document.querySelectorAll(".pill").forEach(function (pill) {
-    pill.addEventListener("click", function () {
-      document.querySelectorAll(".pill").forEach(function (p) {
-        p.classList.toggle("active", p === pill); p.setAttribute("aria-selected", p === pill);
-      });
-      document.querySelectorAll("[data-view]").forEach(function (v) {
-        v.hidden = v.dataset.view !== pill.dataset.client;
-      });
-    });
-  });
-  // Gentle reveal; everything shows at once if IntersectionObserver is missing.
-  var items = document.querySelectorAll(".reveal");
-  if (!("IntersectionObserver" in window) || new URLSearchParams(location.search).has("static")) {
-    items.forEach(function (el) { el.classList.add("seen"); });
-    return;
+  const D = JSON.parse(document.getElementById("demo-data").textContent);
+  const B = D.brightline;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---- theme toggle (per-viewer convenience only) ----
+  const root = document.documentElement, tbtn = $("theme");
+  const isDark = () => root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const label = () => { tbtn.textContent = isDark() ? "Light" : "Dark"; };
+  try { const t = localStorage.getItem("kpi-theme"); if (t) root.dataset.theme = t; } catch (e) {}
+  label();
+  tbtn.addEventListener("click", () => { root.dataset.theme = isDark() ? "light" : "dark"; try { localStorage.setItem("kpi-theme", root.dataset.theme); } catch (e) {} label(); });
+
+  // ---- formatting ----
+  function fmt(k) {
+    const v = Number(k.value);
+    if (k.formula_key === "gross_margin_pct") return v.toFixed(1) + "%";
+    if (k.formula_key === "inventory_days") return v.toFixed(1) + " days";
+    return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("seen"); io.unobserve(e.target); } });
-  }, { threshold: 0.12 });
-  items.forEach(function (el) { io.observe(el); });
+  const short = (s) => s.replace(" target", "");
+  const tick = '<svg width="22" height="22" viewBox="0 0 22 22" class="tickmark" aria-label="On target"><path d="M4 11.5l4.5 4.5L18 6.5"/></svg>';
+  const flag = '<span class="flag" aria-label="Off target">!</span>';
+
+  // ---- hero scorecard ----
+  $("sheet-client").textContent = B.client_name;
+  $("sheet-week").textContent = "Week of " + B.week_label;
+  const reds = B.kpis.filter((k) => k.status === "red").length;
+  $("sheet-foot-left").textContent = (B.kpis.length - reds) + " on target, " + reds + " needs an owner";
+  $("sheet-rows").innerHTML = B.kpis.map((k, i) =>
+    `<tr class="${k.status === "red" ? "red" : ""}" data-red="${k.status === "red"}"><td class="kpi">${esc(k.name)}</td><td class="num">${fmt(k)}</td><td class="num">${esc(short(k.target))}</td><td class="mark">${k.status === "red" ? flag : tick}</td></tr>`).join("");
+  document.querySelectorAll("#sheet-rows .tickmark path").forEach((p, i) => { p.style.animationDelay = (0.35 + i * 0.3) + "s"; });
+
+  function placeRing() {
+    const sheet = $("sheet"), row = sheet.querySelector('tr[data-red="true"]');
+    if (!row) return;
+    const s = sheet.getBoundingClientRect(), r = row.getBoundingClientRect();
+    const x = 8, y = r.top - s.top - 4, w = s.width - 16, h = r.height + 8;
+    const ring = $("ring");
+    ring.setAttribute("width", s.width); ring.setAttribute("height", s.height);
+    ring.style.left = "0"; ring.style.top = "0";
+    $("ring-path").setAttribute("d",
+      `M ${x + w * 0.08} ${y + 2} C ${x + w * 0.5} ${y - 6}, ${x + w + 6} ${y - 2}, ${x + w} ${y + h * 0.5} C ${x + w - 4} ${y + h + 6}, ${x + 10} ${y + h + 4}, ${x} ${y + h * 0.55} C ${x - 4} ${y + 4}, ${x + w * 0.2} ${y - 3}, ${x + w * 0.42} ${y - 1}`);
+    // a short pen stroke from the ring down to a margin note under the sheet
+    const tx = x + w - 2, ty = y + h * 0.8, ny = s.height + 6;
+    $("ring-tail").setAttribute("d", `M ${tx} ${ty} C ${tx + 10} ${ty + 30}, ${tx + 6} ${ny - 10}, ${tx - 14} ${ny + 6}`);
+    const note = $("note");
+    note.textContent = "ask " + B.red_kpi.owner_name.split(" ")[0] + " why";
+    note.style.left = (tx - 22) + "px";
+    note.style.top = (ny - 4) + "px";
+    note.style.transform = "translateX(-100%) rotate(-4deg)";
+  }
+  placeRing();
+  addEventListener("resize", placeRing);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeRing);
+
+  // ---- the Monday checklist ----
+  const todo = [
+    ["Pull each client's numbers from QuickBooks", "auto", "automated"],
+    ["Rebuild the KPI scorecard", "auto", "automated"],
+    ["Spot what's off target, and what moved it", "auto", "automated"],
+    ["Ask the person who owns that number", "auto", "automated"],
+    ["Explain why it moved", "human", "the owner"],
+    ["Build the packet and check every number", "auto", "automated"],
+    ["Approve it before it goes to the client", "human", "the Controller"],
+    ["Send it once, and log it in ClickUp", "auto", "automated"],
+  ];
+  $("todo").innerHTML = todo.map(([t, kind, say]) =>
+    `<li class="${kind}"><span class="box" aria-hidden="true"></span><span class="task">${esc(t)}</span><span class="say hand">${esc(say)}</span></li>`).join("");
+
+  // ---- one week, step by step ----
+  const ar = B.kpis.find((k) => k.status === "red");
+  const maxShare = Math.max(...B.drivers.map((d) => parseFloat(d.share)));
+  const steps = [
+    { when: "Mon 6:00", what: "Numbers come in", who: "auto",
+      title: "Monday morning, the numbers arrive on their own",
+      text: "Accounting numbers come from QuickBooks and bookings from a sales sheet. Code calculates every KPI and compares it to that client's target.",
+      art: `<div class="art"><div class="src"><span class="pill">QuickBooks</span><span class="pill">Sales sheet</span></div>
+        <table class="mini">${B.kpis.map((k) => `<tr class="${k.status === "red" ? "red" : ""}"><td>${esc(k.name)}</td><td class="num">${fmt(k)}</td></tr>`).join("")}</table></div>` },
+    { when: "Mon 6:01", what: "Off target spotted", who: "auto",
+      title: `${esc(ar.name)} doubled, and two customers explain almost all of it`,
+      text: "The system doesn't stop at \"red\". It ranks which customers moved the number, so the owner starts with the right names.",
+      art: `<div class="art"><div class="jump"><span class="from">${esc(ar.prior)}</span><span class="to">${fmt(ar)}</span><span>target ${esc(short(ar.target))}</span></div>
+        <div class="bars">${B.drivers.map((d) => { const neg = d.change.startsWith("-"); const pct = parseFloat(d.share); return `<div class="row"><span class="name">${esc(d.name)}</span><span class="amt">${esc(d.change)}, ${esc(d.share)}</span><div class="track2"><div class="fill ${neg ? "down" : ""}" style="width:${Math.max(2, pct / maxShare * 100)}%"></div></div></div>`; }).join("")}</div></div>` },
+    { when: "Mon 6:05", what: "Owner asked", who: "auto",
+      title: `${esc(B.red_kpi.owner_name)} gets one short email`,
+      text: "AI writes the wording from the computed numbers, and it's checked before sending. It also finds how a similar jump was explained last year.",
+      art: `<div class="art mail"><div class="hdr"><span>To</span><b>${esc(B.red_kpi.owner_email)}</b><span>Subject</span><b>${esc(B.owner_email.subject)}</b></div>
+        <p>${esc(B.observation.split("\n")[0])}</p>
+        <p class="past">Last year (week of Aug 4, 2025): two customers held payments while moving to a new AP system.</p>
+        <span class="link">Answer four questions</span></div>` },
+    { when: "Mon", what: "Owner explains", who: "human",
+      title: "The owner answers in plain words",
+      text: "Four questions, one form. Their answers go into the packet exactly as written: nobody, and no AI, rewrites them.",
+      art: `<div class="art"><dl class="qa">
+        <div><dt>What changed?</dt><dd>${esc(B.reply.what_changed)}</dd></div>
+        <div><dt>Why?</dt><dd><mark>${esc(B.reply.why)}</mark></dd></div>
+        <div><dt>Who owns the fix?</dt><dd>${esc(B.reply.owner_of_fix)}</dd></div>
+        <div><dt>What's being done?</dt><dd>${esc(B.reply.actions)}</dd></div></dl></div>` },
+    { when: "Tue 12:00", what: "Packet checked", who: "auto",
+      title: "The packet is assembled, then every number is checked",
+      text: "Scorecard, what moved and the owner's answer, on one page. Any number, name or date that doesn't match the books blocks the packet.",
+      art: `<div class="art"><div class="label">${esc(B.client_name)}, week of ${esc(B.week_label)}</div>
+        <table class="mini">${B.kpis.map((k) => `<tr class="${k.status === "red" ? "red" : ""}"><td>${esc(k.name)}</td><td class="num">${fmt(k)}</td><td class="num">${k.status === "red" ? flag : tick}</td></tr>`).join("")}</table>
+        <div class="checked">${tick}<span>Every number matches the books${B.packet_passed_check ? "" : " (failed)"}</span></div></div>` },
+    { when: "Tue", what: "Controller approves", who: "human",
+      title: "The Controller reviews it and signs off",
+      text: "The approval link works once, for that exact version of the packet. Nothing goes to the client without it.",
+      art: `<div class="art"><div class="stamp">APPROVED<small>${esc(B.approval.approver)}</small><small>${esc(B.approval.decided_at)}</small></div>
+        <p class="small">If the packet changes after this, the approval no longer counts and the Controller has to look again.</p></div>` },
+    { when: "Tue", what: "Sent once, logged", who: "auto",
+      title: "Leadership gets it once, and ClickUp has the record",
+      text: "Even if a step is retried, the packet goes out exactly once.",
+      art: `<div class="art"><div class="label">Sent to</div><div>${B.packet_email.to.map(esc).join(", ")}</div>
+        <div class="task-card"><b>${esc(B.clickup_task.name)}</b><span>Weekly Packets list in ClickUp</span></div>
+        <div class="once"><div><b>Run 1</b>Packet sent</div><div><b>Run 2</b>Nothing sent: already done</div></div></div>` },
+  ];
+  const track = $("track"), stage = $("stage");
+  track.innerHTML = steps.map((s, i) =>
+    `<li class="${s.who}"><button role="tab" id="t${i}" aria-controls="stage" aria-selected="false"><span class="dot">${i + 1}</span><span class="when">${esc(s.when)}</span><span class="what">${esc(s.what)}</span></button></li>`).join("");
+  const btns = [...track.querySelectorAll("button")];
+  function show(i) {
+    btns.forEach((b, j) => { b.setAttribute("aria-selected", String(i === j)); b.tabIndex = i === j ? 0 : -1; });
+    const s = steps[i];
+    stage.setAttribute("aria-labelledby", "t" + i);
+    stage.innerHTML = `<div><span class="tag ${s.who}">${s.who === "human" ? "A person does this" : "Automated"}</span>
+      <h3>${s.title}</h3><p>${s.text}</p>
+      <div class="nav-steps"><button type="button" data-go="${i - 1}" ${i === 0 ? "disabled" : ""}>Previous step</button><button type="button" data-go="${i + 1}" ${i === steps.length - 1 ? "disabled" : ""}>Next step</button></div></div>
+      <div>${s.art}</div>`;
+    stage.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { show(+b.dataset.go); btns[+b.dataset.go].focus({ preventScroll: true }); }));
+  }
+  btns.forEach((b, i) => {
+    b.addEventListener("click", () => show(i));
+    b.addEventListener("keydown", (e) => {
+      const n = e.key === "ArrowRight" || e.key === "ArrowDown" ? i + 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? i - 1 : null;
+      if (n !== null && n >= 0 && n < btns.length) { e.preventDefault(); show(n); btns[n].focus(); }
+    });
+  });
+  show(0);
+
+  // ---- other clients ----
+  const N = D.northgate, S = D.sandbox;
+  $("northgate").innerHTML = `<h3>${esc(N.client_name)}</h3><div class="sub">Week of ${esc(N.week_label)}</div>
+    <table class="mini">${N.kpis.map((k) => `<tr><td>${esc(k.name)}</td><td class="num">${fmt(k)}</td><td class="num">${tick}</td></tr>`).join("")}</table>
+    <div class="verdict hand green">all green, nobody emailed</div>`;
+  const qb = (v) => "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2 });
+  $("sandbox").innerHTML = `<h3>${esc(S.client_name)}</h3><div class="sub">Live pull from a QuickBooks test company, as of ${esc(S.as_of)}</div>
+    <p class="small" style="margin:0">A real A/R Aging report, checked against QuickBooks' own totals before anything is saved.</p>
+    <div class="qb"><div><b>${esc(S.customers)}</b><span>customers read</span></div><div><b>${qb(S.totals.ar_61_90)}</b><span>61 to 90 days</span></div><div><b>${qb(S.totals.ar_90_plus)}</b><span>over 90 days</span></div></div>
+    <div class="verdict hand green">under the ${esc(short(S.kpis[0].target))} target</div>`;
+
+  // ---- results ----
+  const audit = [
+    ["KPI statuses correct", "120 of 120"],
+    ["False alarms on normal weeks", "0"],
+    ["Right cause ranked first", "10 of 10"],
+    ["Packets passing the number check", "7 of 7"],
+    ["Times one client saw another's data", "0"],
+  ];
+  $("audit").innerHTML = audit.map(([k, v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong>${tick}</div>`).join("");
 })();
 </script>
 </body>
