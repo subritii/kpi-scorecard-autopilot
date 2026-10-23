@@ -1,13 +1,14 @@
 """Templates built only from computed numbers (pure). They must always pass the
 faithfulness check, since they are the fallback when the LLM's text doesn't."""
 
+import html
 from dataclasses import replace
 from decimal import Decimal as D
 
 from test_faithfulness import AR, CTX, GM, OWNER_REPLY, REVENUE
 
 from app import packet
-from app.faithfulness import check, render_owner_quote
+from app.faithfulness import OwnerResponse, check, render_owner_quote
 
 OWNERS = {
     AR.kpi_id: ("Avery Chen", "avery.chen@brightline.example"),
@@ -112,3 +113,61 @@ def test_packet_has_a_row_per_kpi_and_a_section_per_red_kpi():
     assert "## AR Over 60 Days (red)" in md and "## Weekly Revenue (red)" in md
     assert "## Gross Margin %" not in md  # green: table row only
     assert md.startswith("# KPI packet: Brightline Services, week of Aug 3, 2026")
+
+
+# --- HTML packet (approval page and leadership email) -------------------------------------
+
+HOSTILE = OwnerResponse(
+    kpi_id=AR.kpi_id,
+    what_changed="<script>alert('x')</script> two customers paid late",
+    why='<b>bold</b> <img src=x onerror="alert(1)"> & 5 < 6',
+    owner_of_fix="Avery Chen",
+    actions="Line one.\nLine two.",
+)
+
+
+def test_html_has_a_row_per_kpi_with_value_target_and_colored_status():
+    page = packet.assemble_html(CTX, OWNERS, replies={AR.kpi_id: OWNER_REPLY})
+    for kpi in CTX.kpis:
+        assert f">{html.escape(kpi.name)}</td>" in page  # cells carry inline styles
+        assert packet.display(kpi.formula_key, kpi.value) in page
+        assert packet.display(kpi.formula_key, kpi.target) in page
+    assert page.count(packet.STATUS_COLORS["red"]) == 2  # Weekly Revenue and AR are red
+    assert packet.STATUS_COLORS["green"] in page
+
+
+def test_html_has_each_red_kpi_observation_and_the_owners_answers():
+    page = packet.assemble_html(CTX, OWNERS, replies={AR.kpi_id: OWNER_REPLY})
+    assert "AR Over 60 Days rose to $114,983.12" in page  # the template observation
+    for question in packet.QUESTIONS:
+        assert html.escape(question) in page  # "What's" is escaped too
+    assert "Two customers paid late; about $59,000 is now overdue." in page
+
+
+def test_html_marks_unanswered_kpis():
+    page = packet.assemble_html(CTX, OWNERS, replies={})
+    assert "Replies missing for: Weekly Revenue and AR Over 60 Days." in page
+    assert page.count("No reply yet") == 2
+
+
+def test_owner_html_is_shown_as_text_not_run():
+    page = packet.assemble_html(CTX, OWNERS, replies={AR.kpi_id: HOSTILE})
+    assert "<script" not in page and "<img" not in page and "<b>" not in page
+    assert "&lt;script&gt;alert(&#x27;x&#x27;)&lt;/script&gt;" in page
+    assert "&lt;b&gt;bold&lt;/b&gt;" in page and "&amp; 5 &lt; 6" in page
+    assert "Line one.<br>Line two." in page  # newlines kept, as line breaks
+
+
+def test_html_has_no_scripts_or_event_handlers_at_all():
+    import re
+
+    page = packet.assemble_html(CTX, OWNERS, replies={AR.kpi_id: HOSTILE})
+    # Inside real tags only: escaped text like "&lt;img onerror=..." is harmless.
+    assert not re.search(r"<\s*script|<[^>]*\son\w+\s*=|javascript:", page, re.I)
+
+
+def test_plain_text_drops_the_owner_quote_markers():
+    md = packet.assemble(CTX, OWNERS, replies={AR.kpi_id: OWNER_REPLY})
+    text = packet.plain_text(md)
+    assert "<!--" not in text and "owner-quote" not in text
+    assert "Two customers paid late; about $59,000 is now overdue." in text

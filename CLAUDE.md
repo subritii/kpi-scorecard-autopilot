@@ -37,8 +37,15 @@ This is a portfolio project. Synthetic data and sandboxes only.
 ├── api/
 │   ├── pyproject.toml
 │   ├── app/
-│   │   ├── main.py           # FastAPI app + routes
+│   │   ├── main.py           # FastAPI app + routes (API key router; token pages)
+│   │   ├── auth.py           # X-API-Key check (constant time) + startup check
 │   │   ├── db.py             # connection, sets app.current_client_id per request
+│   │   ├── runs.py           # run state machine + lifecycle steps n8n calls
+│   │   ├── packet.py         # owner messages and the packet (Markdown + HTML), from data
+│   │   ├── links.py          # signed, single-use, expiring links for people
+│   │   ├── pages.py          # approval page and owner reply form (escaped HTML)
+│   │   ├── email.py          # composes every email; TEST_EMAIL_OVERRIDE / EMAIL_MODE
+│   │   ├── prompts.py        # loads prompts/*.md
 │   │   ├── service.py        # SQL for the endpoints; Decimal -> string for JSON
 │   │   ├── kpis.py           # pure KPI formulas + status logic (no I/O)
 │   │   ├── drivers.py        # top contributors to a change
@@ -180,7 +187,8 @@ python scripts/run_eval.py
 - Keep `kpis.py` pure (no database or network calls) so it is easy to test.
 - Prompts live in `prompts/` as files, not inline strings.
 - After each change: run `pytest` and `ruff`. Do not say a step is done if tests fail.
-- Every API route needs the `X-API-Key` header (`API_KEY` in `.env`, 32+ characters; the API won't start without it), `/health` included. Only `/docs` and `/openapi.json` are exempt, and only when `DOCS_ENABLED=true` (development). Ports bind to 127.0.0.1.
+- People act only through API-hosted pages reached from signed, single-use, expiring links (`app/links.py`): `/approve` (Controller, bound to run + packet version; the approver recorded is the client's `controller_email` from the database) and `/reply` (owner, bound to run + KPI). There is no way to approve by sending an address. GET on these pages never changes anything.
+- Every API route needs the `X-API-Key` header (`API_KEY` in `.env`, 32+ characters; the API won't start without it), `/health` included. Exempt: `/approve` and `/reply` (they use the signed token instead), and `/docs` and `/openapi.json` only when `DOCS_ENABLED=true` (development). Ports bind to 127.0.0.1.
 - Never commit unless the full test suite passes (read the summary line, not just the exit code). The pre-commit hook in `.githooks/` enforces this, and also blocks when Postgres is down (the security tests must run, not skip); never bypass it with `--no-verify`.
 - Explain non-obvious code with short comments. I need to be able to walk through every file in an interview.
 - Ask before adding a new dependency or service.

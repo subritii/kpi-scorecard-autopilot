@@ -7,6 +7,7 @@ in one transaction that is rolled back.
 import importlib.util
 import json
 import os
+import re
 from contextlib import contextmanager
 
 import psycopg
@@ -21,12 +22,14 @@ from app.faithfulness import OwnerResponse, render_owner_quote
 from app.llm.base import LLMError
 from app.llm.fake import FakeProvider
 from app.main import app, get_connect, get_llm
+from app.packet import plain_text
 
 spec = importlib.util.spec_from_file_location("embed_docs", REPO_ROOT / "scripts" / "embed_docs.py")
 embed_docs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(embed_docs)
 
 client = TestClient(app, headers={"X-API-Key": os.environ["API_KEY"]})
+browser = TestClient(app)  # approval and reply pages: no API key
 GROUND_TRUTH = json.loads((REPO_ROOT / "data" / "seed" / "ground_truth.json").read_text())
 WEEK_5 = "2026-08-03"  # Brightline: AR over 60 is the only red KPI
 CONTROLLER = "controller@ledgerline-cfo.example"
@@ -97,6 +100,16 @@ def events(conn, run_id) -> list[tuple]:
         "SELECT from_state, to_state FROM run_events WHERE run_id = %s ORDER BY id", (run_id,)
     ).fetchall()
     return [(r["from_state"], r["to_state"]) for r in rows]
+
+
+def decide(rid, decision="approved", notes=""):
+    """The Controller opens the approval link and decides (no address in any request)."""
+    issued = post(f"/runs/{rid}/approval-email")
+    if issued.status_code != 200:
+        return issued  # e.g. 409: nothing to approve in this state
+    mail = issued.json()["approval_email"]
+    token = re.search(r"/approve\?token=([A-Za-z0-9_.\-]+)", mail["body"]).group(1)
+    return browser.post("/approve", data={"token": token, "decision": decision, "notes": notes})
 
 
 def to_awaiting_approval(reply=True) -> dict:
@@ -290,14 +303,6 @@ def test_packet_twice_is_409(db):
 # --- approval and sending ---------------------------------------------------------------------
 
 
-def test_only_the_clients_controller_can_approve(db):
-    run = to_awaiting_approval()
-    resp = post(
-        f"/runs/{run['run_id']}/approval", approver="ceo@brightline.example", decision="approved"
-    )
-    assert resp.status_code == 403
-
-
 KEY = "n8n-execution-1001"  # n8n passes its execution id as the idempotency key
 
 
@@ -311,7 +316,7 @@ def mark_sent(rid, key=KEY):
 
 def approved_run() -> int:
     run = to_awaiting_approval()
-    post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="approved")
+    decide(run["run_id"], "approved")
     return run["run_id"]
 
 
@@ -319,10 +324,8 @@ def test_approve_claim_then_mark_sent(db):
     run = to_awaiting_approval()
     rid = run["run_id"]
     assert claim(rid).status_code == 409  # not approved yet
-    approval = post(
-        f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved", edits="Looks good."
-    )
-    assert approval.status_code == 200 and approval.json()["state"] == "awaiting_approval"
+    approval = decide(rid, "approved", notes="Looks good.")
+    assert approval.status_code == 200 and get_run(rid)["state"] == "awaiting_approval"
     claimed = claim(rid)
     assert claimed.status_code == 200
     body = claimed.json()
@@ -409,22 +412,20 @@ def test_idempotency_key_is_required(db, key):
 
 def test_second_approval_is_409(db):
     run = to_awaiting_approval()
-    post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="approved")
-    resp = post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="rejected")
+    decide(run["run_id"], "approved")
+    resp = decide(run["run_id"], "rejected")
     assert resp.status_code == 409
 
 
 def test_rejected_packet_cannot_be_sent_until_rebuilt_and_approved(db):
     run = to_awaiting_approval()
     rid = run["run_id"]
-    rejected = post(
-        f"/runs/{rid}/approval", approver=CONTROLLER, decision="rejected", edits="Fix AR."
-    )
-    assert rejected.json()["state"] == "rejected"
+    rejected = decide(rid, "rejected", notes="Fix AR.")
+    assert rejected.status_code == 200 and get_run(rid)["state"] == "rejected"
     assert claim(rid).status_code == 409
     assert post(f"/runs/{rid}/packet").json()["state"] == "awaiting_approval"  # rebuilt
     assert claim(rid).status_code == 409  # the old rejection doesn't count
-    post(f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved")
+    decide(rid, "approved")
     assert claim(rid).status_code == 200
     assert mark_sent(rid).status_code == 200
 
@@ -433,17 +434,12 @@ def test_cannot_skip_from_asking_to_sent(db):
     run = start()
     assert claim(run["run_id"]).status_code == 409
     assert mark_sent(run["run_id"]).status_code == 409
-    assert (
-        post(
-            f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="approved"
-        ).status_code
-        == 409
-    )
+    assert decide(run["run_id"], "approved").status_code == 409
 
 
 def test_approvals_are_insert_only(db):
     run = to_awaiting_approval()
-    post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="approved")
+    decide(run["run_id"], "approved")
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         with db.transaction():
             db.execute(
@@ -482,7 +478,8 @@ def test_sent_run_cannot_need_attention(db):
         ("observations", {}),
         ("responses", {"kpi_id": 1, **REPLY}),
         ("packet", {}),
-        ("approval", {"approver": CONTROLLER, "decision": "approved"}),
+        ("approval-email", {}),
+        ("reminders", {}),
         ("claim-send", {"idempotency_key": KEY}),
         ("mark-sent", {"idempotency_key": KEY}),
         ("needs-attention", {"reason": "x"}),
@@ -497,14 +494,6 @@ def test_get_run_of_another_client_is_404(db):
     northgate_run = start(WEEK_5, client_id="northgate")["run_id"]
     assert (
         client.get(f"/runs/{northgate_run}", params={"client_id": "brightline"}).status_code == 404
-    )
-
-
-def test_bad_decision_is_422(db):
-    run = to_awaiting_approval()
-    assert (
-        post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="maybe").status_code
-        == 422
     )
 
 
@@ -536,8 +525,9 @@ def test_no_real_address_reaches_a_recipient_field_when_overridden(db, monkeypat
     run = start()
     rid = run["run_id"]
     responses = [run, post(f"/runs/{rid}/observations").json(), get_run(rid)]
-    responses.append(post(f"/runs/{rid}/packet").json())
-    post(f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved")
+    responses.append(post(f"/runs/{rid}/reminders").json())
+    responses.append(post(f"/runs/{rid}/packet").json())  # includes the approval email
+    decide(rid, "approved")
     responses.append(get_run(rid))
     responses.append(claim(rid).json())  # the email n8n actually sends
     other = start("2026-08-10")  # a second run, for the alert email
@@ -566,26 +556,31 @@ def test_packet_email_only_after_approval_and_to_leadership(db, monkeypatch):
     run = to_awaiting_approval()
     rid = run["run_id"]
     assert get_run(rid)["packet_email"] is None  # nothing to send before approval
-    post(f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved")
+    decide(rid, "approved")
     got = get_run(rid)
     mail = got["packet_email"]
     assert mail["to"] == ["me+ceo.brightline@gmail.com", "me+coo.brightline@gmail.com"]
     assert mail["subject"] == "KPI packet: Brightline Services, week of Aug 3, 2026"
+    # Plain text: the checked packet without its invisible owner-quote markers.
     assert mail["body"] == (
-        BANNER + "ceo@brightline.example, coo@brightline.example\n\n" + got["packet_md"]
+        BANNER + "ceo@brightline.example, coo@brightline.example\n\n" + plain_text(got["packet_md"])
     )
+    # HTML: the version stored with the packet, after the test-mode banner.
+    stored = db.execute("SELECT packet_html FROM weekly_runs WHERE id = %s", (rid,)).fetchone()
+    assert mail["html"].endswith(stored["packet_html"]) and "Test mode" in mail["html"]
 
 
 def test_reminder_emails_for_unanswered_kpis(db, monkeypatch):
     monkeypatch.setenv("TEST_EMAIL_OVERRIDE", ME)
     monkeypatch.delenv("EMAIL_MODE")
     run = start()
-    [reminder] = get_run(run["run_id"])["reminder_emails"]
+    [reminder] = post(f"/runs/{run['run_id']}/reminders").json()["reminder_emails"]
     assert reminder["to"] == ["me+avery.chen.brightline@gmail.com"]
     assert "AR Over 60 Days" in reminder["subject"]
     assert reminder["body"].startswith(BANNER)
     post(f"/runs/{run['run_id']}/responses", kpi_id=ar_kpi(run)["kpi_id"], **REPLY)
-    assert get_run(run["run_id"])["reminder_emails"] == []  # answered: no reminder
+    # answered: no reminder
+    assert post(f"/runs/{run['run_id']}/reminders").json()["reminder_emails"] == []
 
 
 def test_alert_email_on_needs_attention(db, monkeypatch):

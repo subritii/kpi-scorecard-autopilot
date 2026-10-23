@@ -51,6 +51,8 @@ services:
       TZ: ${TIMEZONE}
       # Workflows call the API by its service name on the compose network.
       KPI_API_URL: http://api:8000
+      # Interval of the send workflow's poll for approved packets (see docs/n8n-setup.md).
+      SEND_POLL_INTERVAL_MINUTES: ${SEND_POLL_INTERVAL_MINUTES}
     ports:
       - "127.0.0.1:5678:5678"
     volumes:

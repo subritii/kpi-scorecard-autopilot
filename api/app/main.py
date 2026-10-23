@@ -17,8 +17,9 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from starlette.concurrency import run_in_threadpool
 
-from app import email, faithfulness, retrieval, runs, service
+from app import email, faithfulness, links, pages, retrieval, runs, service
 from app.auth import check_configured_key, require_api_key
 from app.db import client_connection
 from app.llm import get_provider
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
     # Refuse to start on bad settings, rather than failing per request.
     check_configured_key()
     email.check_override()
+    links.check_settings()
     yield
 
 
@@ -65,12 +67,8 @@ def run_conflict(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
-@app.exception_handler(runs.Forbidden)
-def run_forbidden(request: Request, exc: Exception) -> JSONResponse:
-    return JSONResponse(status_code=403, content={"detail": str(exc)})
-
-
 @app.exception_handler(email.EmailConfigError)
+@app.exception_handler(links.LinkConfigError)
 @app.exception_handler(retrieval.RetrievalConfigError)
 def retrieval_config_error(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": str(exc)})
@@ -361,12 +359,6 @@ class ResponseRequest(ClientRequest, NonBlank):
     actions: str = Field(min_length=1)
 
 
-class ApprovalRequest(ClientRequest, NonBlank):
-    approver: str = Field(min_length=1)  # must be the client's Controller
-    decision: Literal["approved", "rejected"]
-    edits: str | None = None  # the Controller's notes; the packet itself is not edited
-
-
 class SendRequest(ClientRequest, NonBlank):
     # Identifies the sender, e.g. the n8n execution id; reused on a retry.
     idempotency_key: str = Field(min_length=8, max_length=200)
@@ -387,6 +379,13 @@ def runs_start(req: WeekRequest, connect: Connect):
     """Compute the week, create its run (collecting -> asking), return the red KPIs."""
     with connect(req.client_id) as conn:
         return service.as_json(runs.start(conn, req.client_id, req.week_start))
+
+
+@api.get("/runs/ready-to-send")
+def runs_ready_to_send(client_id: str, connect: Connect):
+    """Runs approved and not yet claimed: the send workflow's poll."""
+    with connect(client_id) as conn:
+        return service.as_json(runs.ready_to_send(conn, client_id))
 
 
 @api.get("/runs/{run_id}")
@@ -417,13 +416,18 @@ def runs_packet(run_id: int, req: ClientRequest, connect: Connect):
         return service.as_json(runs.build_packet(conn, req.client_id, run_id))
 
 
-@api.post("/runs/{run_id}/approval")
-def runs_approval(run_id: int, req: ApprovalRequest, connect: Connect):
-    """Record the Controller's decision on the current packet version (insert-only)."""
+@api.post("/runs/{run_id}/approval-email")
+def runs_approval_email(run_id: int, req: ClientRequest, connect: Connect):
+    """A fresh approval email (single-use link) for the Controller, e.g. to resend it."""
     with connect(req.client_id) as conn:
-        return runs.record_approval(
-            conn, req.client_id, run_id, req.approver, req.decision, req.edits
-        )
+        return service.as_json(runs.approval_email(conn, req.client_id, run_id))
+
+
+@api.post("/runs/{run_id}/reminders")
+def runs_reminders(run_id: int, req: ClientRequest, connect: Connect):
+    """Reminder emails, with fresh reply links, for red KPIs that have no reply yet."""
+    with connect(req.client_id) as conn:
+        return runs.reminders(conn, req.client_id, run_id)
 
 
 @api.post("/runs/{run_id}/claim-send")
@@ -454,6 +458,97 @@ def runs_needs_attention(run_id: int, req: AttentionRequest, connect: Connect):
     """Flag the run for a human (WF6 error handler), with the reason logged."""
     with connect(req.client_id) as conn:
         return runs.needs_attention(conn, req.client_id, run_id, req.reason)
+
+
+# --- pages for people: approval and owner reply ------------------------------------------
+# Opened from an email in a browser, which can't send the API key, so these
+# routes are outside the key-protected router and authenticate with the signed,
+# single-use token in the link instead (app/links.py). GET only shows a page;
+# only POST (submitting the form) changes anything, so link scanners are harmless.
+
+
+def _html(body: str, status: int = 200) -> HTMLResponse:
+    return HTMLResponse(body, status_code=status, headers=pages.HEADERS)
+
+
+def _link_error(e: Exception) -> HTMLResponse:
+    if isinstance(e, links.LinkGone):
+        return _html(pages.message("Link no longer valid", str(e)), 410)
+    if isinstance(e, links.InvalidLink):
+        return _html(pages.message("Invalid link", "This link is not valid."), 403)
+    if isinstance(e, runs.Conflict):
+        return _html(pages.message("Nothing to do", str(e)), 409)
+    raise e
+
+
+def _with_link(connect, token: str, work):
+    """Verify the token, then run work(conn, link) as that link's client."""
+    try:
+        link = links.verify(token)
+        with connect(link.client_id) as conn:
+            return work(conn, link)
+    except (links.InvalidLink, links.LinkGone, runs.Conflict) as e:
+        return _link_error(e)
+
+
+@app.get("/approve", include_in_schema=False)
+def approve_page(connect: Connect, token: str = ""):
+    def show(conn, link):
+        info = runs.approval_page(conn, link)
+        return _html(pages.approval(token, info["client_name"], info["week"], info["packet_html"]))
+
+    return _with_link(connect, token, show)
+
+
+@app.post("/approve", include_in_schema=False)
+async def approve_submit(request: Request, connect: Connect):
+    form = pages.parse_form(await request.body())
+    decision, notes = form.get("decision", ""), form.get("notes", "").strip()
+    if decision not in ("approved", "rejected"):
+        return _html(pages.message("Choose approve or reject", "Use the buttons on the page."), 422)
+
+    def decide(conn, link):
+        result = runs.decide_by_link(conn, link, decision, notes)
+        word = "approved" if result["decision"] == "approved" else "rejected"
+        return _html(pages.message(f"Packet {word}", f"Thank you. The packet was {word}."))
+
+    return await run_in_threadpool(_with_link, connect, form.get("token", ""), decide)
+
+
+@app.get("/reply", include_in_schema=False)
+def reply_page(connect: Connect, token: str = ""):
+    def show(conn, link):
+        info = runs.reply_page(conn, link)
+        return _html(pages.reply_form(token, info["kpi_name"], info["week"], info["owner_name"]))
+
+    return _with_link(connect, token, show)
+
+
+@app.post("/reply", include_in_schema=False)
+async def reply_submit(request: Request, connect: Connect):
+    form = pages.parse_form(await request.body())
+    token = form.get("token", "")
+    fields = {name: form.get(name, "") for name, _ in pages.REPLY_FIELDS}
+
+    def save(conn, link):
+        if any(not v.strip() for v in fields.values()):
+            # Show the form again with what they typed; the link stays unused.
+            info = runs.reply_page(conn, link)
+            return _html(
+                pages.reply_form(
+                    token,
+                    info["kpi_name"],
+                    info["week"],
+                    info["owner_name"],
+                    values=fields,
+                    error="Please answer all four questions.",
+                ),
+                422,
+            )
+        runs.reply_by_link(conn, link, fields)
+        return _html(pages.message("Thank you", "Your reply was saved and goes into the packet."))
+
+    return await run_in_threadpool(_with_link, connect, token, save)
 
 
 # --- development docs ------------------------------------------------------------------

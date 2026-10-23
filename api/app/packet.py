@@ -3,8 +3,14 @@
 observation_template() is the fallback owner observation when the LLM's text
 fails the faithfulness check; assemble() builds the whole packet. Both must
 always pass faithfulness.check() (tests/test_packet.py).
+
+assemble_html() builds the same packet as HTML for the approval page and the
+leadership email, directly from the data (no Markdown library), escaping every
+value with html.escape. Inline styles only; no scripts, links or images.
 """
 
+import html
+import re
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -90,7 +96,10 @@ def observation_template(k: KpiContext, week_start: date) -> str:
 
 
 def owner_message(
-    owner_name: str, observation: str, past_explanation: tuple[str, str] | None
+    owner_name: str,
+    observation: str,
+    past_explanation: tuple[str, str] | None,
+    reply_url: str | None = None,
 ) -> str:
     """The message sent to a KPI owner. Only `observation` may be LLM-written.
 
@@ -99,6 +108,8 @@ def owner_message(
     """
     lines = [f"Hi {owner_name.split()[0]},", "", observation, "", "Please reply with:"]
     lines += [f"{i}. {q}" for i, q in enumerate(QUESTIONS, start=1)]
+    if reply_url:
+        lines += ["", "Reply using this form (the link works once):", reply_url]
     if past_explanation:
         week, text = past_explanation
         lines += ["", f"For reference, last year's explanation of a similar move (week of {week}):"]
@@ -150,3 +161,94 @@ def assemble(
                 f"> **No reply yet** from {owner_name} ({owner_email}): this KPI is unanswered."
             )
     return "\n".join(lines) + "\n"
+
+
+# --- HTML version ---------------------------------------------------------------------
+
+# (background, text) per status, as inline styles: the only styling allowed.
+STATUS_COLORS = {
+    "green": "background:#d8f3dc;color:#1b4332",
+    "yellow": "background:#fff3bf;color:#5c4400",
+    "red": "background:#ffd6d6;color:#7a0000",
+    "no_data": "background:#e9ecef;color:#495057",
+}
+_CELL = "padding:6px 10px;border:1px solid #dee2e6;text-align:left"
+
+
+def _text(value: str) -> str:
+    """Escape text for HTML; keep its line breaks."""
+    return html.escape(value).replace("\n", "<br>")
+
+
+def assemble_html(
+    ctx: RunContext,
+    owners: dict[int, tuple[str, str]],
+    replies: dict[int, OwnerResponse],
+) -> str:
+    """The packet as an HTML fragment: the same content as assemble(), built from data.
+
+    Every value (names, numbers, owner answers) goes through html.escape, so
+    text like "<script>" in an owner's reply is shown, never run.
+    """
+    red = [k for k in ctx.kpis if k.status == "red"]
+    unanswered = [k for k in red if k.kpi_id not in replies]
+    out = [
+        '<div style="font-family:system-ui,sans-serif;color:#1b1b1b;line-height:1.5">',
+        f"<h1>KPI packet: {_text(ctx.client_name)}, "
+        f"week of {_text(week_label(ctx.week_start))}</h1>",
+    ]
+    if unanswered:
+        names = _text(_join([k.name for k in unanswered]))
+        out.append(f"<p><strong>Replies missing for: {names}.</strong></p>")
+
+    out.append('<table style="border-collapse:collapse">')
+    headers = ("KPI", "This week", "Last week", "Change", "Target", "Status")
+    out.append("<tr>" + "".join(f'<th style="{_CELL}">{h}</th>' for h in headers) + "</tr>")
+    for k in ctx.kpis:
+        prior = display(k.formula_key, k.prior_value) if k.prior_value is not None else "-"
+        change = (
+            display(k.formula_key, k.net_change, signed=True) if k.net_change is not None else "-"
+        )
+        cells = [
+            k.name,
+            display(k.formula_key, k.value),
+            prior,
+            change,
+            display(k.formula_key, k.target),
+        ]
+        row = "".join(f'<td style="{_CELL}">{_text(c)}</td>' for c in cells)
+        color = STATUS_COLORS.get(k.status, STATUS_COLORS["no_data"])
+        row += f'<td style="{_CELL};{color};font-weight:600">{_text(k.status)}</td>'
+        out.append(f"<tr>{row}</tr>")
+    out.append("</table>")
+
+    for k in red:
+        owner_name, owner_email = owners[k.kpi_id]
+        out.append(f"<h2>{_text(k.name)} (red)</h2>")
+        out.append(f"<p>{_text(observation_template(k, ctx.week_start))}</p>")
+        reply = replies.get(k.kpi_id)
+        if reply:
+            out.append(f"<p><strong>Reply from {_text(owner_name)}:</strong></p><dl>")
+            for question, attr in zip(
+                QUESTIONS, ("what_changed", "why", "owner_of_fix", "actions"), strict=True
+            ):
+                out.append(
+                    f"<dt><strong>{_text(question)}</strong></dt>"
+                    f'<dd style="margin:0 0 .75rem 1rem">{_text(getattr(reply, attr))}</dd>'
+                )
+            out.append("</dl>")
+        else:
+            out.append(
+                f"<p><strong>No reply yet</strong> from {_text(owner_name)} "
+                f"({_text(owner_email)}): this KPI is unanswered.</p>"
+            )
+    out.append("</div>")
+    return "".join(out)
+
+
+_QUOTE_MARKER_LINE = re.compile(r"^<!-- /?owner-quote[^>]*-->\n?", re.M)
+
+
+def plain_text(packet_md: str) -> str:
+    """The checked packet as plain text: the invisible owner-quote markers removed."""
+    return _QUOTE_MARKER_LINE.sub("", packet_md)

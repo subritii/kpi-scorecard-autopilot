@@ -15,6 +15,7 @@ explicitly. With neither TEST_EMAIL_OVERRIDE nor EMAIL_MODE=live (or with
 both), it refuses to start, and compose()/recipient() refuse as a backstop.
 """
 
+import html as html_lib
 import os
 import re
 
@@ -71,8 +72,21 @@ def recipients(addresses: list[str]) -> list[str]:
     return [recipient(a) for a in addresses]
 
 
-def compose(to: list[str], subject: str, body: str) -> dict:
-    """An email for n8n to send as-is: {to, subject, body}."""
+def compose(to: list[str], subject: str, body: str, html: str | None = None) -> dict:
+    """An email for n8n to send as-is: {to, subject, body} plus an `html` part if given.
+
+    `body` is the plain-text version. `html` must already be safe (built with
+    escaped values, e.g. packet.assemble_html).
+    """
     if _override() is not None:
-        body = f"{BANNER}{', '.join(to)}\n\n{body}"
-    return {"to": recipients(to), "subject": subject, "body": body}
+        banner = f"{BANNER}{', '.join(to)}"
+        body = f"{banner}\n\n{body}"
+        if html is not None:
+            html = (
+                '<p style="background:#fff3bf;padding:8px;font-family:system-ui,sans-serif">'
+                f"{html_lib.escape(banner)}</p>{html}"
+            )
+    mail = {"to": recipients(to), "subject": subject, "body": body}
+    if html is not None:
+        mail["html"] = html
+    return mail

@@ -27,6 +27,7 @@ RLS_TABLES = [
     "source_loads",
     "run_events",
     "claim_resolutions",
+    "link_tokens",
 ]
 
 
@@ -153,6 +154,8 @@ OWNER_SQL = {
     " LEFT JOIN weekly_runs r ON r.id = e.run_id",
     "claim_resolutions": "SELECT r.client_id AS owner FROM claim_resolutions c"
     " LEFT JOIN weekly_runs r ON r.id = c.run_id",
+    "link_tokens": "SELECT r.client_id AS owner FROM link_tokens t"
+    " LEFT JOIN weekly_runs r ON r.id = t.run_id",
 }
 
 
@@ -188,6 +191,11 @@ def seeded(conn):
             "INSERT INTO claim_resolutions (run_id, resolution, resolved_by, claim_key)"
             " VALUES (%s, 'not_sent', 'x', 'k')",
             (run,),
+        )
+        conn.execute(
+            "INSERT INTO link_tokens (jti, run_id, purpose, packet_version, expires_at)"
+            " VALUES (%s, %s, 'approve', 0, now())",
+            (f"rls-{cid}", run),
         )
         conn.execute(
             "INSERT INTO doc_chunks (client_id, doc_key, kpi_id, source_type, text)"

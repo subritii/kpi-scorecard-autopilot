@@ -16,13 +16,14 @@ retried n8n execution can't email twice. Once claimed, a run only moves to
 sent (or needs_attention for a person to check): at most once, never twice.
 """
 
+import html
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import date
 
 import psycopg
 
-from app import email, faithfulness, packet, prompts, retrieval, service
+from app import email, faithfulness, links, packet, prompts, retrieval, service
 from app.faithfulness import OwnerResponse
 from app.llm.base import LLMError, LLMProvider
 
@@ -56,10 +57,6 @@ class InvalidTransition(Conflict):
     pass
 
 
-class Forbidden(Exception):
-    """The caller isn't allowed to do this (HTTP 403)."""
-
-
 Connect = Callable[[str], AbstractContextManager[psycopg.Connection]]
 
 
@@ -79,7 +76,7 @@ def _require_state(run: dict, allowed: set[str], step: str) -> None:
 def get_run(conn: psycopg.Connection, client_id: str, run_id: int, lock: bool = False) -> dict:
     """The run, optionally locked (FOR UPDATE) until the transaction ends."""
     row = conn.execute(
-        "SELECT id, client_id, week_start, state, packet_md, packet_version,"
+        "SELECT id, client_id, week_start, state, packet_md, packet_html, packet_version,"
         " send_claim_key, send_claimed_at, send_claim_version FROM weekly_runs"
         " WHERE id = %s AND client_id = %s" + (" FOR UPDATE" if lock else ""),
         (run_id, client_id),
@@ -211,27 +208,9 @@ def describe(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
     ).fetchone()
     answered = _answered(conn, client_id, run_id)
     red = _red_kpis(conn, client_id, run["week_start"])
-    owners = _kpi_owners(conn, client_id)
-    week = packet.week_label(run["week_start"])
     approved = _approved(conn, run)
     # The packet email exists only once the current version is approved (rule 4).
-    packet_email = (
-        email.compose(
-            c["leadership_emails"], f"KPI packet: {c['name']}, week of {week}", run["packet_md"]
-        )
-        if approved and run["packet_md"]
-        else None
-    )
-    reminder_emails = [
-        email.compose(
-            [owners[k["kpi_id"]]["owner_email"]],
-            f"Reminder: {k['name']} for the week of {week} needs your input",
-            f"Hi {k['owner_name'].split()[0]},\n\nA reminder to answer the request about "
-            f"{k['name']} for the week of {week} by Tuesday 12:00.",
-        )
-        for k in red
-        if k["kpi_id"] not in answered
-    ]
+    packet_email = _packet_email(conn, run) if approved and run["packet_md"] else None
     return {
         "run_id": run["id"],
         "client_id": client_id,
@@ -251,7 +230,6 @@ def describe(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
         "red_kpis": [{**k, "answered": k["kpi_id"] in answered} for k in red],
         "unanswered_kpis": [k for k in red if k["kpi_id"] not in answered],
         "packet_email": packet_email,
-        "reminder_emails": reminder_emails,
     }
 
 
@@ -352,10 +330,13 @@ def observations(connect: Connect, llm: LLMProvider, client_id: str, run_id: int
             template_check_passed = faithfulness.check(observation, ctx).passed
 
         owner = owners[k.kpi_id]
+        with connect(client_id) as conn:
+            reply_url = links.issue(conn, get_run(conn, client_id, run_id), "reply", k.kpi_id)
         message = packet.owner_message(
             owner["owner_name"],
             observation,
             (packet.week_label(past.week_start), past.text) if past else None,
+            reply_url=reply_url,
         )
         messages.append(
             {
@@ -416,11 +397,14 @@ def build_packet(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
         latest[r.kpi_id] = r
     md = packet.assemble(ctx, owners, latest)
     result = faithfulness.check(md, ctx)
+    # Same data, as HTML, stored with this version for the page and the email.
+    packet_html = packet.assemble_html(ctx, owners, latest)
 
     version = conn.execute(
-        "UPDATE weekly_runs SET packet_md = %s, packet_version = packet_version + 1"
+        "UPDATE weekly_runs SET packet_md = %s, packet_html = %s,"
+        " packet_version = packet_version + 1"
         " WHERE id = %s AND client_id = %s RETURNING packet_version",
-        (md, run_id, client_id),
+        (md, packet_html, run_id, client_id),
     ).fetchone()["packet_version"]
     run["packet_version"] = version
     if result.passed:
@@ -429,6 +413,7 @@ def build_packet(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
         move(conn, run, "needs_attention", note="packet failed the faithfulness check")
 
     red = [k for k in ctx.kpis if k.status == "red"]
+    run["packet_md"], run["packet_html"] = md, packet_html
     return {
         "run_id": run_id,
         "client_id": client_id,
@@ -436,6 +421,7 @@ def build_packet(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
         "packet_version": version,
         "packet_md": md,
         "faithfulness": {"passed": result.passed, "problems": _problems_json(result)},
+        "approval_email": _approval_email(conn, run) if result.passed else None,
         "unanswered_kpis": [
             {
                 "kpi_id": k.kpi_id,
@@ -448,41 +434,6 @@ def build_packet(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
             if k.kpi_id not in latest
         ],
     }
-
-
-def record_approval(
-    conn: psycopg.Connection,
-    client_id: str,
-    run_id: int,
-    approver: str,
-    decision: str,
-    edits: str | None,
-) -> dict:
-    """Insert the Controller's decision on the current packet version (insert-only)."""
-    run = get_run(conn, client_id, run_id, lock=True)
-    _require_state(run, {"awaiting_approval"}, "record an approval")
-    controller = conn.execute(
-        "SELECT controller_email FROM clients WHERE id = %s", (client_id,)
-    ).fetchone()["controller_email"]
-    # TODO(signed approval tokens): REMOVE this whole approver-by-address check.
-    # It trusts an address the caller sends, so it is not real identity. When
-    # approvals come only through signed, single-use links, delete it and keep
-    # the test that proves approving by address no longer works.
-    # Interim: accept the Controller's address, or its test-mode alias.
-    if approver.strip().lower() not in {controller.lower(), email.recipient(controller).lower()}:
-        raise Forbidden("only the client's Controller can approve or reject the packet")
-    approver = controller  # record the real address, not an alias
-    _refuse_if_claimed(run, "record an approval")
-    if _approved(conn, run):
-        raise Conflict("this packet version is already approved")
-    row = conn.execute(
-        "INSERT INTO approvals (run_id, approver, decision, edits, packet_version)"
-        " VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (run_id, approver, decision, edits, run["packet_version"]),
-    ).fetchone()
-    if decision == "rejected":
-        move(conn, run, "rejected", note=edits)
-    return {"approval_id": row["id"], "run_id": run_id, "state": run["state"]}
 
 
 def _refuse_if_claimed(run: dict, step: str) -> None:
@@ -499,7 +450,10 @@ def _packet_email(conn: psycopg.Connection, run: dict) -> dict:
     ).fetchone()
     week = packet.week_label(run["week_start"])
     return email.compose(
-        c["leadership_emails"], f"KPI packet: {c['name']}, week of {week}", run["packet_md"]
+        c["leadership_emails"],
+        f"KPI packet: {c['name']}, week of {week}",
+        packet.plain_text(run["packet_md"]),
+        html=run["packet_html"],
     )
 
 
@@ -626,4 +580,157 @@ def resolve_claim(
         "client_id": client_id,
         "state": run["state"],
         "resolution": resolution,
+    }
+
+
+# --- people's links: approval page, reply form, reminders ---------------------------------
+
+
+def _client(conn: psycopg.Connection, client_id: str) -> dict:
+    return conn.execute(
+        "SELECT name, controller_email FROM clients WHERE id = %s", (client_id,)
+    ).fetchone()
+
+
+def _check_approvable(conn: psycopg.Connection, run: dict) -> None:
+    _require_state(run, {"awaiting_approval"}, "approve or reject the packet")
+    _refuse_if_claimed(run, "approve or reject the packet")
+    if _approved(conn, run):
+        raise Conflict("this packet version is already approved")
+
+
+def _approval_email(conn: psycopg.Connection, run: dict) -> dict:
+    """The Controller's email: a fresh single-use approval link, then the packet."""
+    _check_approvable(conn, run)
+    c = _client(conn, run["client_id"])
+    url = links.issue(conn, run, "approve")
+    week = packet.week_label(run["week_start"])
+    hours = int(links.ttl().total_seconds() // 3600)
+    intro = (
+        f"The KPI packet for {c['name']} (week of {week}) is ready for your review. "
+        f"Approve or reject it here. The link works once and expires in {hours} hours:"
+    )
+    body = f"{intro}\n{url}\n\n---\n\n{packet.plain_text(run['packet_md'])}"
+    safe = html.escape
+    html_body = (
+        f'<p style="font-family:system-ui,sans-serif">{safe(intro)}<br>'
+        f'<a href="{safe(url)}">Open the approval page</a></p><hr>{run["packet_html"]}'
+    )
+    return email.compose(
+        [c["controller_email"]],
+        f"Approve the KPI packet: {c['name']}, week of {week}",
+        body,
+        html=html_body,
+    )
+
+
+def approval_email(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
+    """Re-issue the approval email (e.g. the first one was lost or expired)."""
+    run = get_run(conn, client_id, run_id, lock=True)
+    return {"run_id": run_id, "client_id": client_id, "approval_email": _approval_email(conn, run)}
+
+
+def reminders(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
+    """A reminder, with a fresh reply link, for each red KPI with no reply yet."""
+    run = get_run(conn, client_id, run_id, lock=True)
+    _require_state(run, REPLY_STATES, "send reminders")
+    answered = _answered(conn, client_id, run_id)
+    owners = _kpi_owners(conn, client_id)
+    week = packet.week_label(run["week_start"])
+    mails = []
+    for k in _red_kpis(conn, client_id, run["week_start"]):
+        if k["kpi_id"] in answered:
+            continue
+        url = links.issue(conn, run, "reply", k["kpi_id"])
+        mails.append(
+            email.compose(
+                [owners[k["kpi_id"]]["owner_email"]],
+                f"Reminder: {k['name']} for the week of {week} needs your input",
+                f"Hi {k['owner_name'].split()[0]},\n\nA reminder to answer the request about "
+                f"{k['name']} for the week of {week} by Tuesday 12:00. Reply using this form "
+                f"(the link works once):\n{url}",
+            )
+        )
+    return {"run_id": run_id, "client_id": client_id, "reminder_emails": mails}
+
+
+def approval_page(conn: psycopg.Connection, link: links.Link) -> dict:
+    """What the approval page shows. Read-only: opening the link decides nothing."""
+    links.check_unused(conn, link, "approve")
+    run = get_run(conn, link.client_id, link.run_id)
+    if link.packet_version != run["packet_version"]:
+        raise Conflict("the packet changed since this link was sent; use the newest approval email")
+    _check_approvable(conn, run)
+    return {
+        "client_name": _client(conn, link.client_id)["name"],
+        "week": packet.week_label(run["week_start"]),
+        "packet_html": run["packet_html"],
+    }
+
+
+def decide_by_link(conn: psycopg.Connection, link: links.Link, decision: str, notes: str) -> dict:
+    """Record the Controller's decision from a signed approval link.
+
+    The approver recorded is the client's controller_email from the database:
+    the link was only ever sent there. Nothing in the request names the approver.
+    """
+    links.check_unused(conn, link, "approve")
+    run = get_run(conn, link.client_id, link.run_id, lock=True)
+    if link.packet_version != run["packet_version"]:
+        raise Conflict("the packet changed since this link was sent; use the newest approval email")
+    _check_approvable(conn, run)
+    links.consume(conn, link)
+    approver = _client(conn, link.client_id)["controller_email"]
+    conn.execute(
+        "INSERT INTO approvals (run_id, approver, decision, edits, packet_version)"
+        " VALUES (%s, %s, %s, %s, %s)",
+        (run["id"], approver, decision, notes or None, run["packet_version"]),
+    )
+    if decision == "rejected":
+        move(conn, run, "rejected", note=notes or None)
+    return {"run_id": run["id"], "state": run["state"], "decision": decision}
+
+
+def reply_page(conn: psycopg.Connection, link: links.Link) -> dict:
+    """What the reply form shows. Read-only."""
+    links.check_unused(conn, link, "reply")
+    run = get_run(conn, link.client_id, link.run_id)
+    _require_state(run, REPLY_STATES, "reply (the packet is already being assembled)")
+    kpi = _kpi_owners(conn, link.client_id)[link.kpi_id]
+    return {
+        "kpi_name": kpi["name"],
+        "owner_name": kpi["owner_name"],
+        "week": packet.week_label(run["week_start"]),
+    }
+
+
+def reply_by_link(conn: psycopg.Connection, link: links.Link, fields: dict[str, str]) -> dict:
+    """Save an owner's reply from a signed reply link, verbatim."""
+    reply_page(conn, link)  # same checks as showing the form
+    links.consume(conn, link)
+    return save_response(conn, link.client_id, link.run_id, {"kpi_id": link.kpi_id, **fields})
+
+
+def ready_to_send(conn: psycopg.Connection, client_id: str) -> dict:
+    """Runs whose current packet version is approved and whose send isn't claimed."""
+    rows = conn.execute(
+        """
+        SELECT r.id, r.week_start, r.packet_version FROM weekly_runs r
+        WHERE r.client_id = %s AND r.state = 'awaiting_approval' AND r.send_claim_key IS NULL
+          AND EXISTS (SELECT 1 FROM approvals a WHERE a.run_id = r.id
+                      AND a.decision = 'approved' AND a.packet_version = r.packet_version)
+        ORDER BY r.week_start
+        """,
+        (client_id,),
+    ).fetchall()
+    return {
+        "client_id": client_id,
+        "runs": [
+            {
+                "run_id": r["id"],
+                "week_start": r["week_start"],
+                "packet_version": r["packet_version"],
+            }
+            for r in rows
+        ],
     }

@@ -11,8 +11,11 @@ from app import auth
 from app.main import api, app
 
 GOOD = os.environ["API_KEY"]  # set by conftest (from .env, or a test key)
-# Development-only docs pages: the one exception to the key, and off by default.
+# The only routes without the API key: the development-only docs pages (off by
+# default), and the pages people open from an email, which authenticate with the
+# signed, single-use token in the link instead.
 DOCS_PATHS = {"/docs", "/openapi.json"}
+TOKEN_PATHS = {"/approve", "/reply"}
 anonymous = TestClient(app)
 
 
@@ -44,9 +47,16 @@ def test_routes_exist_to_check():
     assert len(list(every_route())) >= 10
 
 
-def test_only_the_docs_routes_are_outside_the_protected_router():
+def test_only_docs_and_token_routes_are_outside_the_protected_router():
     unprotected = {r.path for r in app.routes if isinstance(r, APIRoute)}
-    assert unprotected == DOCS_PATHS
+    assert unprotected == DOCS_PATHS | TOKEN_PATHS
+
+
+@pytest.mark.parametrize("path", sorted(TOKEN_PATHS))
+def test_token_routes_refuse_requests_without_a_valid_token(path):
+    # No API key and no token: refused, never served.
+    assert anonymous.get(path).status_code == 403
+    assert anonymous.post(path, data={}).status_code in (403, 422)
 
 
 def test_right_key_is_accepted():
