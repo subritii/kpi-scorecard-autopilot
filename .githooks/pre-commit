@@ -38,6 +38,7 @@ echo "$OUTPUT" | tail -1
 if echo "$OUTPUT" | grep -q -e "database not available" -e "seeded data not found"; then
     echo "$OUTPUT" | grep "SKIPPED" | grep -v "pytest --live"
     echo "pre-commit: database tests were skipped; commit blocked."
-    echo "pre-commit: start Postgres (docker compose up -d postgres) and seed it, then retry."
+    echo "pre-commit: start Postgres (docker compose up -d postgres) and set up the test"
+    echo "pre-commit: database (python scripts/setup_test_db.py), then retry."
     exit 1
 fi

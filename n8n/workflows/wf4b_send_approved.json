@@ -1,0 +1,247 @@
+{
+  "name": "WF4b Send approved packets",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -176
+      ],
+      "id": "4ee5d548-2434-48d3-a76c-d736d28a1e0b",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "=http://api:8000/runs/ready-to-send?client_id={{ $json.client_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        96,
+        -176
+      ],
+      "id": "2aa54923-9b6f-4db2-9a09-8a3bb308fc87",
+      "name": "Ready to send",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "runs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        -176
+      ],
+      "id": "4c8dd7a0-3c3f-4cc1-b830-418b62110193",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8000/runs/{{ $json.run_id }}/claim-send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $('Clients').item.json.client_id }}"
+            },
+            {
+              "name": "idempotency_key",
+              "value": "=  wf4b-exec-{{ $execution.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        544,
+        -176
+      ],
+      "id": "c1e4834b-106e-4095-8457-9169cca5ab88",
+      "name": "Claim Send",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "smtp-from@example.com",
+        "toEmail": "={{ $json.packet_email.to.join(', ') }}",
+        "subject": "={{ $json.packet_email.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.packet_email.body }}",
+        "html": "={{ $json.packet_email.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        48
+      ],
+      "id": "8a6feea4-5c22-4446-9dee-7c2ca0d63694",
+      "name": "Email leadership",
+      "webhookId": "d6f7f71f-12db-4101-9630-b5dc529e9c6a",
+      "credentials": {
+        "smtp": {
+          "id": "j0SFZlUQJu6iJIle",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { client_id: \"brightline\" } },\n  { json: { client_id: \"northgate\" } },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        -176
+      ],
+      "id": "25f2764e-f6cc-4ef3-9f9d-bb689a018fea",
+      "name": "Clients"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8000/runs/{{ $('Split Out').item.json.run_id }}/mark-sent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $('Clients').item.json.client_id }}"
+            },
+            {
+              "name": "idempotency_key",
+              "value": "=  wf4b-exec-{{ $execution.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        48
+      ],
+      "id": "3485b305-f1b3-44d9-bb26-4cf50d475c18",
+      "name": "Mark Sent",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready to send": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Claim Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Send": {
+      "main": [
+        [
+          {
+            "node": "Email leadership",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email leadership": {
+      "main": [
+        [
+          {
+            "node": "Mark Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clients": {
+      "main": [
+        [
+          {
+            "node": "Ready to send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "eb1aa810-01fd-4199-b907-5de9e4c62029",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c2ca7174a521a4c149b699ccdf6601469a40d90bc75e1e3f4369c9e0dbfcf1e1"
+  },
+  "nodeGroups": [],
+  "id": "eHaVTddR8Rt7pRLk",
+  "tags": []
+}

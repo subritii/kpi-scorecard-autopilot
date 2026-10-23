@@ -1,0 +1,153 @@
+{
+  "name": "WF2 Ask the owners",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "client_id"
+            },
+            {
+              "name": "run_id",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7896072b-0b84-4460-bd82-4d0451e5b433",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8000/runs/{{ $json.run_id }}/observations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $json.client_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "ce59d21d-1f30-4a56-9717-380bdc92ca00",
+      "name": "Get owner messages",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "messages",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "6f64ef70-22a5-4218-99b3-50d9aa60dc25",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "fromEmail": "smtp-from@example.com",
+        "toEmail": "={{ $json.email.to.join(', ') }}",
+        "subject": "={{ $json.email.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.email.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        0
+      ],
+      "id": "3577ff51-6ef2-40ef-b055-3058aad75ff1",
+      "name": "Send an Email",
+      "webhookId": "dd84020e-7399-4b58-a8f3-657da2b37782",
+      "retryOnFail": false,
+      "credentials": {
+        "smtp": {
+          "id": "j0SFZlUQJu6iJIle",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get owner messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get owner messages": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c523dd89-f85c-4ada-8479-c1e98498ad85",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c2ca7174a521a4c149b699ccdf6601469a40d90bc75e1e3f4369c9e0dbfcf1e1"
+  },
+  "nodeGroups": [],
+  "id": "NHovc0QxWMdx95vp",
+  "tags": []
+}

@@ -169,7 +169,8 @@ cp .env.example .env               # then fill in values
 git config core.hooksPath .githooks  # pre-commit hook: ruff + pytest must pass
 docker compose up -d               # n8n :5678, api :8000, postgres :5432
 cd api && pip install -e ".[dev]"
-pytest                             # run all tests (live tests skipped)
+python scripts/setup_test_db.py    # once: create/migrate/seed kpi_scoreboard_test
+pytest                             # run all tests against the test database (live tests skipped)
 pytest --live -s                   # also run tests against real Ollama, printing scores
 ruff check . && ruff format .
 python scripts/generate_synthetic.py

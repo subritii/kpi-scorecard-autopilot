@@ -75,6 +75,11 @@ def count(conn, table) -> int:
     ).fetchone()["n"]
 
 
+def test_tests_run_against_the_test_database(conn):
+    # Never the dev/demo database (see conftest.py).
+    assert conn.execute("SELECT current_database() AS d").fetchone()["d"].endswith("_test")
+
+
 def test_connected_as_app_user_without_bypass(conn):
     role = conn.execute(
         "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"

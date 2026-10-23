@@ -1,0 +1,232 @@
+{
+  "name": "WF4 Build packet",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -176
+      ],
+      "id": "68fd005d-d616-4fd7-a15f-7148edc00451",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/runs/start",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $json.client_id }}"
+            },
+            {
+              "name": "week_start",
+              "value": "={{ $json.week_start }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        96,
+        -80
+      ],
+      "id": "5bae85df-0831-4099-a5cf-17e45cf34f39",
+      "name": "Start run",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Week to run. Synthetic data uses fixed weeks; change this to demo another week.\nconst WEEK_START = \"2026-08-03\";\n\nreturn [\n  { json: { client_id: \"brightline\", week_start: WEEK_START } },\n  { json: { client_id: \"northgate\",  week_start: WEEK_START } },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        -80
+      ],
+      "id": "737287cf-7e62-42e4-b071-c5cba6252a30",
+      "name": "Clients for week"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8000/runs/{{ $json.run_id }}/approval-email",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $('Clients for week').item.json.client_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        320,
+        -80
+      ],
+      "id": "fe6540e0-d7d7-4b40-b293-6e5617e623e4",
+      "name": "Build packet",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "smtp-from@example.com",
+        "toEmail": "={{ $json.approval_email.to.join(', ') }}",
+        "subject": "={{ $json.approval_email.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.approval_email.body }}",
+        "html": "={{ $json.approval_email.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        512,
+        160
+      ],
+      "id": "007779c4-a737-454d-be52-fb3d05ae3189",
+      "name": "Send an Email",
+      "webhookId": "df4cdbe5-e547-40fb-b7fc-6b27dea5f9f3",
+      "credentials": {
+        "smtp": {
+          "id": "j0SFZlUQJu6iJIle",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "081ca56b-cbbf-48b7-a835-1da8ab1d2435",
+              "leftValue": "={{ $json.approval_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        208,
+        176
+      ],
+      "id": "a5181a38-7186-46b6-85fd-0a4c6973bd24",
+      "name": "Packet Passed?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Clients for week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clients for week": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Build packet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build packet": {
+      "main": [
+        [
+          {
+            "node": "Packet Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Packet Passed?": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a572c330-2bf5-48fd-be02-fb90362c5a7b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c2ca7174a521a4c149b699ccdf6601469a40d90bc75e1e3f4369c9e0dbfcf1e1"
+  },
+  "nodeGroups": [],
+  "id": "7cXGE2ZAABBh7LIG",
+  "tags": []
+}

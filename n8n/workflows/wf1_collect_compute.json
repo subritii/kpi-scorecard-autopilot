@@ -1,0 +1,243 @@
+{
+  "name": "WF1 Collect & compute",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "04eaf267-fb41-4b61-8d97-e9cdde9d949e",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        208
+      ],
+      "id": "b64c392d-816a-4ebc-a7ba-4f314d99b57b",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/runs/start",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $json.client_id }}"
+            },
+            {
+              "name": "week_start",
+              "value": "={{ $json.week_start }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        96
+      ],
+      "id": "7c3d2ce7-930e-4a03-8c79-e6165f07b6da",
+      "name": "Start run",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Week to run. Synthetic data uses fixed weeks; change this to demo another week.\nconst WEEK_START = \"2026-08-03\";\n\nreturn [\n  { json: { client_id: \"brightline\", week_start: WEEK_START } },\n  { json: { client_id: \"northgate\",  week_start: WEEK_START } },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        96
+      ],
+      "id": "2d4d07f9-9219-40ac-b9d7-95cca5d33915",
+      "name": "Clients for week"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "30d28150-8c1c-4548-b3b7-08c902e39e55",
+              "leftValue": "={{ $json.red_kpis.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        672,
+        96
+      ],
+      "id": "4dbd7edd-93b5-41f9-b036-e201a8272e7d",
+      "name": "Any red KPIs?"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NHovc0QxWMdx95vp",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NHovc0QxWMdx95vp",
+          "cachedResultName": "WF2 Ask the owners"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "client_id": "={{ $('Clients for week').item.json.client_id }}",
+            "run_id": "={{ $json.run_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "client_id",
+              "displayName": "client_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "run_id",
+              "displayName": "run_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        848,
+        -96
+      ],
+      "id": "2534a367-283d-46cc-b56b-f5db4300bddb",
+      "name": "Call 'WF2 Ask the owners'"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Clients for week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Clients for week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Any red KPIs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clients for week": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any red KPIs?": {
+      "main": [
+        [
+          {
+            "node": "Call 'WF2 Ask the owners'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d9079ae4-3d49-4edd-9226-5990579561a5",
+  "meta": {
+    "instanceId": "c2ca7174a521a4c149b699ccdf6601469a40d90bc75e1e3f4369c9e0dbfcf1e1"
+  },
+  "nodeGroups": [],
+  "id": "WKHHyV8pWpOT1g0q",
+  "tags": []
+}

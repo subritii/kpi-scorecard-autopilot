@@ -30,10 +30,14 @@ needs_attention -> sent | awaiting_approval   (only by resolving a stuck send cl
 - **Every request carries `client_id`.** Runs are client-scoped (row-level
   security); a `run_id` with the wrong `client_id` returns `404`.
 - **The API writes every email; n8n only sends them.** Endpoints return ready
-  emails as `{to, subject, body}`, and the approval and leadership emails also
-  have `html`. Map *To*, *Subject* and *Text* (= `body`) into the Send Email
-  node; for emails with `html`, set *Email Format* to **Both** and map *HTML*
-  (= `html`). Add nothing of your own.
+  emails as `{to, subject, body}`; the approval and leadership emails also have
+  `html`. In each Send Email node:
+  - *To*: `{{ $json.<email>.to.join(', ') }}` (`to` is a list),
+  - *Subject*: `subject`; *Text*: `body`,
+  - for emails with `html` (approval, leadership): *Email Format* **Both** and
+    *HTML*: `html`; owner emails are text only,
+  - *Options > Append n8n Attribution*: **off**, so nothing is added to the
+    API's text.
 - **Email goes out through SMTP**: n8n's **Send Email** node, sending through
   Gmail with an app password (not the Gmail node or Gmail OAuth).
 - **Turn off *Retry On Fail* on every Send Email node.** A retried send can't
@@ -94,94 +98,104 @@ No database, LLM or Azure credentials go into n8n; the API key is its only way i
 A used, expired, forged or outdated link shows an error page and changes
 nothing. Approving by sending an address to the API is not possible.
 
-## WF1 Collect & compute (Mon 06:00)
+## Workflow status
+
+| Workflow | Status | Export |
+|---|---|---|
+| WF1 Collect & compute | **Built** | `n8n/workflows/wf1_collect_compute.json` |
+| WF2 Ask the owners | **Built** | `n8n/workflows/wf2_ask_owners.json` |
+| WF3 Reminder | Planned, not built | |
+| WF4 Build packet & request approval | **Built** (manual trigger) | `n8n/workflows/wf4_build_packet.json` |
+| WF4b Send approved packets | **Built** (manual trigger; poll planned) | `n8n/workflows/wf4b_send_approved.json` |
+| WF5 Remember | Planned, not built (needs `/runs/{id}/remember`) | |
+| WF6 Error handler | Planned, not built | |
+
+Until WF6 exists, no workflow has an error workflow set; failures show in n8n's
+execution list. The HTTP nodes use `http://api:8000` directly (the API's name on
+the Compose network).
+
+## WF1 Collect & compute (built)
 
 | # | Node | Calls / does |
 |---|---|---|
-| 1 | Schedule Trigger | Mondays 06:00 (`GENERIC_TIMEZONE`) |
-| 2 | Set: clients | `[{client_id: "brightline"}, {client_id: "northgate"}]` (one item each) |
-| 3 | Code: week_start | This Monday as `YYYY-MM-DD` (for the synthetic data, a fixed week such as `2026-08-03`) |
-| 4 | HTTP Request | `POST /runs/start {client_id, week_start}` |
-| 5 | IF | `red_kpis` is not empty |
-| 6 | Execute Workflow | WF2 with `{client_id, run_id}` (true branch) |
+| 1 | Schedule Trigger + Manual Trigger | Mondays 06:00 (`GENERIC_TIMEZONE`), or by hand from the editor |
+| 2 | Code: *Clients for week* | One item per client with a fixed `WEEK_START` (`2026-08-03`): the synthetic data has fixed weeks; change it to demo another week |
+| 3 | HTTP Request: *Start run* | `POST /runs/start {client_id, week_start}` |
+| 4 | IF: *Any red KPIs?* | `{{ $json.red_kpis.length }}` > 0 |
+| 5 | Execute Workflow | WF2 with `{client_id, run_id}` (true branch) |
 
 Pulling QuickBooks and creating the ClickUp task come in Phase 6; until then
 the data is the seeded synthetic set.
 
-## WF2 Ask the owners (sub-workflow)
+## WF2 Ask the owners (built, sub-workflow)
 
 | # | Node | Calls / does |
 |---|---|---|
 | 1 | Execute Workflow Trigger | Input: `client_id, run_id` |
-| 2 | HTTP Request | `POST /runs/{run_id}/observations {client_id}` |
+| 2 | HTTP Request: *Get owner messages* | `POST /runs/{run_id}/observations {client_id}` |
 | 3 | Split Out | `messages` (one item per red KPI) |
-| 4 | Send Email (SMTP) | *To*, *Subject*, *Text* from the item's `email`. It contains the owner's reply link. |
+| 4 | Send Email (SMTP) | Text: *To* `{{ $json.email.to.join(', ') }}`, *Subject* / *Text* from `email`; the body carries the owner's reply link. Retry On Fail off, attribution off. |
 
-That's all: owners answer on the reply form, and the API saves the reply. No
-workflow waits for them.
+Owners answer on the reply form; the API saves the reply. No workflow waits.
 
-## WF3 Reminder (Tue 09:00)
+## WF3 Reminder (planned, not built)
 
-| # | Node | Calls / does |
-|---|---|---|
-| 1 | Schedule Trigger | Tuesdays 09:00 |
-| 2 | Set: clients + Code: week_start | As in WF1 |
-| 3 | HTTP Request | `POST /runs/start` (returns the existing run unchanged) |
-| 4 | HTTP Request | `POST /runs/{run_id}/reminders {client_id}` |
-| 5 | Split Out | `reminder_emails` |
-| 6 | Send Email (SMTP) | *To*, *Subject*, *Text* from each reminder (each has a fresh reply link) |
+Tuesdays 09:00: `POST /runs/start` (returns the existing run), then
+`POST /runs/{run_id}/reminders {client_id}`, Split Out `reminder_emails`, and
+send each (text) with its fresh reply link.
 
-## WF4 Build packet & request approval (Tue 12:00)
+## WF4 Build packet & request approval (built, manual trigger)
 
 | # | Node | Calls / does |
 |---|---|---|
-| 1 | Schedule Trigger | Tuesdays 12:00 |
-| 2 | Set: clients + Code: week_start | As in WF1 |
-| 3 | HTTP Request | `POST /runs/start` (to get `run_id`) |
-| 4 | HTTP Request | `POST /runs/{run_id}/packet {client_id}` |
-| 5 | IF | `approval_email` is not empty (the packet passed the faithfulness check). Otherwise the run is `needs_attention`: stop. |
-| 6 | Send Email (SMTP) | *Email Format: Both.* *To*, *Subject*, *Text* (`body`) and *HTML* (`html`) from `approval_email`: the Controller's approval link, then the packet |
+| 1 | Manual Trigger | Run from the editor (a Tuesday 12:00 schedule is planned) |
+| 2 | Code: *Clients for week* | As in WF1 |
+| 3 | HTTP Request: *Start run* | `POST /runs/start` (to get `run_id`) |
+| 4 | HTTP Request: *Build packet* | `POST /runs/{run_id}/packet {client_id}`: builds the packet and returns `approval_email`. **Note:** the current export calls `/approval-email` here, which only works when the packet already exists (`409` on a fresh run); change the URL to `/packet`. Use `/approval-email` only to resend. |
+| 5 | IF: *Packet Passed?* | `{{ $json.approval_email }}` exists (the packet passed the faithfulness check). Otherwise the run is `needs_attention`: stop. |
+| 6 | Send Email (SMTP) | **Both**: *To* `{{ $json.approval_email.to.join(', ') }}`, *Subject*, *Text* (`body`), *HTML* (`html`). Attribution off. |
 
-The Controller approves or rejects on the approval page; WF4b picks up
-approved packets. On *reject*, fix what the notes say (e.g. ask an owner for a
-better reply), then run WF4 again: rebuilding bumps the packet version and
+The Controller approves or rejects on the approval page. On *reject*, fix what
+the notes say, then run WF4 again: rebuilding bumps the packet version and
 sends a new approval link.
 
-## WF4b Send approved packets (poll)
+## WF4b Send approved packets (built, manual trigger)
 
 | # | Node | Calls / does |
 |---|---|---|
-| 1a | Schedule Trigger | Every `SEND_POLL_INTERVAL_MINUTES` minutes (`.env`; `1` in development). In the trigger, set the interval to the expression `{{ $env.SEND_POLL_INTERVAL_MINUTES }}`; if your n8n version doesn't accept an expression there, type the number. |
-| 1b | Manual Trigger | Same workflow, run by hand from the editor (*Execute workflow*): useful in a demo right after approving, instead of waiting for the poll. |
-| 2 | Set: clients | As in WF1 |
-| 3 | HTTP Request | `GET /runs/ready-to-send?client_id=` |
+| 1 | Manual Trigger | Run from the editor right after approving (handy in a demo). The planned Schedule Trigger polls every `SEND_POLL_INTERVAL_MINUTES` (`.env`; `1` in development): use the expression `{{ $env.SEND_POLL_INTERVAL_MINUTES }}`, or type the number if your n8n version doesn't accept it. |
+| 2 | Code: *Clients* | One item per client |
+| 3 | HTTP Request: *Ready to send* | `GET /runs/ready-to-send?client_id=` |
 | 4 | Split Out | `runs` |
-| 5 | HTTP Request | `POST /runs/{run_id}/claim-send {client_id, idempotency_key: {{ $execution.id }}}`. On `409`, stop: another execution owns the send, or it already went out. |
-| 6 | Send Email (SMTP) | *Email Format: Both.* *To*, *Subject*, *Text* (`body`) and *HTML* (`html`) from node 5's `packet_email`. **Retry On Fail must be off.** |
-| 7 | HTTP Request | `POST /runs/{run_id}/mark-sent {client_id, idempotency_key: {{ $execution.id }}}`, only after node 6 succeeds. Retry is safe (`already_sent: true`). |
-| 8 | Execute Workflow | WF5 with `{client_id, run_id}` |
+| 5 | HTTP Request: *Claim Send* | `POST /runs/{run_id}/claim-send {client_id, idempotency_key: "wf4b-exec-{{ $execution.id }}"}`. The prefix is needed because the API requires 8+ characters and a bare execution id is shorter; it also says where the claim came from. On `409`, stop: another execution owns the send, or it already went out. |
+| 6 | Send Email (SMTP): *Email leadership* | **Both**: *To* `{{ $json.packet_email.to.join(', ') }}`, *Subject*, *Text* (`body`), *HTML* (`html`). **Retry On Fail off**, attribution off. |
+| 7 | HTTP Request: *Mark Sent* | `POST /runs/{run_id}/mark-sent {client_id, idempotency_key: "wf4b-exec-{{ $execution.id }}"}` (the same key as node 5), only after node 6 succeeds. Retry is safe (`already_sent: true`). |
 
-Why the claim: if n8n runs this twice for the same run (an overlapping poll, a
+The key must be identical in nodes 5 and 7, character for character: the API
+compares it exactly, so a stray space in one of them makes `mark-sent` return
+`409`. (The current export has two leading spaces in both, so they match; it's
+safer to remove them from both.)
+
+Why the claim: if this runs twice for the same run (an overlapping poll, a
 retry, someone clicking *Retry*), the second execution has a different id, so
 `claim-send` refuses it and leadership gets the packet once. If an execution
-stops after claiming but before `mark-sent`, nothing re-sends it
-automatically: WF6 flags it and a person settles it with `resolve-claim`.
+stops after claiming but before `mark-sent`, nothing re-sends it automatically:
+a person settles it with `resolve-claim` (see WF6).
 
-## WF5 Remember (sub-workflow)
+## WF5 Remember (planned, not built)
 
-| # | Node | Calls / does |
-|---|---|---|
-| 1 | Execute Workflow Trigger | Input: `client_id, run_id` |
-| 2 | HTTP Request | `POST /runs/{run_id}/remember {client_id}`: **not built yet.** It will embed the sent run's owner replies into `doc_chunks` as `past_explanation`s, so next year's retrieval finds them. |
+After a run is sent: `POST /runs/{run_id}/remember {client_id}` (the endpoint
+isn't built yet) will embed the run's owner replies into `doc_chunks` as
+`past_explanation`s, so next year's retrieval finds them.
 
-## WF6 Error handler
+## WF6 Error handler (planned, not built)
 
 | # | Node | Calls / does |
 |---|---|---|
 | 1 | Error Trigger | Fires when any workflow that names WF6 as its error workflow fails |
-| 2 | Code: find the run | Read `client_id` and `run_id` from the failed execution's data; if there's no run yet (e.g. WF1 failed before `/runs/start`), skip node 3 |
-| 3 | HTTP Request | `POST /runs/{run_id}/needs-attention {client_id, reason: "<workflow>: <node>: <error message>"}` (`409` here means the run was already sent, which is fine) |
-| 4 | Send Email (SMTP) | Map the `alert_email` from node 3. If the run had a claimed send, the alert explains how to settle it with `resolve-claim`. |
+| 2 | Code: find the run | Read `client_id` and `run_id` from the failed execution's data; if there's no run yet, skip node 3 |
+| 3 | HTTP Request | `POST /runs/{run_id}/needs-attention {client_id, reason: "<workflow>: <node>: <error message>"}` (`409` means the run was already sent, which is fine) |
+| 4 | Send Email (SMTP) | The `alert_email` from node 3. If the run had a claimed send, it explains how to settle it with `resolve-claim`. |
 
 To resume a `needs_attention` run, re-run the step that failed: `packet`,
 `observations` and `reminders` all work from `needs_attention`.
@@ -190,12 +204,12 @@ To resume a `needs_attention` run, re-run the step that failed: `packet`,
 retried: check the leadership inbox, then call
 `POST /runs/{id}/resolve-claim {client_id, resolution, resolved_by, note}` with
 `"sent"` (it went out: the run becomes sent) or `"not_sent"` (it didn't: the
-claim is released and the next poll sends it). Who resolved it, and when, is
-recorded. While a claim is open, `GET /runs/{id}` shows `status: "sending"`.
+claim is released and the next send run sends it). Who resolved it, and when,
+is recorded. While a claim is open, `GET /runs/{id}` shows `status: "sending"`.
 
 ## Export
 
 Build each workflow in the editor, then *Download* it as JSON into
-`n8n/workflows/` (`wf1_collect_compute.json`, ...). Before committing, check the
+`n8n/workflows/` (`wf1_collect_compute.json`, ...; n8n adds `.json`, so don't type it twice). Before committing, check the
 JSON for hardcoded secrets (credentials are referenced by ID, never inlined),
 missing error-workflow settings, and any request without `client_id`.
