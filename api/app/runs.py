@@ -17,7 +17,7 @@ from datetime import date
 
 import psycopg
 
-from app import faithfulness, packet, prompts, retrieval, service
+from app import email, faithfulness, packet, prompts, retrieval, service
 from app.faithfulness import OwnerResponse
 from app.llm.base import LLMError, LLMProvider
 
@@ -123,7 +123,7 @@ def _red_kpis(conn: psycopg.Connection, client_id: str, week_start: date) -> lis
             "value": None if r["value"] is None else format(r["value"], "f"),
             "display_value": packet.display(r["formula_key"], r["value"]),
             "owner_name": r["owner_name"],
-            "owner_email": r["owner_email"],
+            "owner_email": email.recipient(r["owner_email"]),
         }
         for r in rows
     ]
@@ -197,11 +197,33 @@ def describe(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
     """Read-only view for n8n: state, packet, recipients, approval, unanswered KPIs."""
     run = get_run(conn, client_id, run_id)
     c = conn.execute(
-        "SELECT controller_email, leadership_emails, clickup_list_id FROM clients WHERE id = %s",
+        "SELECT name, controller_email, leadership_emails, clickup_list_id FROM clients"
+        " WHERE id = %s",
         (client_id,),
     ).fetchone()
     answered = _answered(conn, client_id, run_id)
     red = _red_kpis(conn, client_id, run["week_start"])
+    owners = _kpi_owners(conn, client_id)
+    week = packet.week_label(run["week_start"])
+    approved = _approved(conn, run)
+    # The packet email exists only once the current version is approved (rule 4).
+    packet_email = (
+        email.compose(
+            c["leadership_emails"], f"KPI packet: {c['name']}, week of {week}", run["packet_md"]
+        )
+        if approved and run["packet_md"]
+        else None
+    )
+    reminder_emails = [
+        email.compose(
+            [owners[k["kpi_id"]]["owner_email"]],
+            f"Reminder: {k['name']} for the week of {week} needs your input",
+            f"Hi {k['owner_name'].split()[0]},\n\nA reminder to answer the request about "
+            f"{k['name']} for the week of {week} by Tuesday 12:00.",
+        )
+        for k in red
+        if k["kpi_id"] not in answered
+    ]
     return {
         "run_id": run["id"],
         "client_id": client_id,
@@ -209,12 +231,14 @@ def describe(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
         "state": run["state"],
         "packet_md": run["packet_md"],
         "packet_version": run["packet_version"],
-        "approved": _approved(conn, run),
-        "controller_email": c["controller_email"],
-        "leadership_emails": c["leadership_emails"],
+        "approved": approved,
+        "controller_email": email.recipient(c["controller_email"]),
+        "leadership_emails": email.recipients(c["leadership_emails"]),
         "clickup_list_id": c["clickup_list_id"],
         "red_kpis": [{**k, "answered": k["kpi_id"] in answered} for k in red],
         "unanswered_kpis": [k for k in red if k["kpi_id"] not in answered],
+        "packet_email": packet_email,
+        "reminder_emails": reminder_emails,
     }
 
 
@@ -315,18 +339,24 @@ def observations(connect: Connect, llm: LLMProvider, client_id: str, run_id: int
             template_check_passed = faithfulness.check(observation, ctx).passed
 
         owner = owners[k.kpi_id]
+        message = packet.owner_message(
+            owner["owner_name"],
+            observation,
+            (packet.week_label(past.week_start), past.text) if past else None,
+        )
         messages.append(
             {
                 "kpi_id": k.kpi_id,
                 "kpi_name": k.name,
                 "formula_key": k.formula_key,
                 "owner_name": owner["owner_name"],
-                "owner_email": owner["owner_email"],
+                "owner_email": email.recipient(owner["owner_email"]),
                 "observation": observation,
-                "message": packet.owner_message(
-                    owner["owner_name"],
-                    observation,
-                    (packet.week_label(past.week_start), past.text) if past else None,
+                "message": message,
+                "email": email.compose(
+                    [owner["owner_email"]],
+                    f"Week of {packet.week_label(ctx.week_start)}: {k.name} needs your input",
+                    message,
                 ),
                 "source": source,
                 "attempts": attempts,
@@ -398,7 +428,7 @@ def build_packet(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
                 "name": k.name,
                 "formula_key": k.formula_key,
                 "owner_name": owners[k.kpi_id][0],
-                "owner_email": owners[k.kpi_id][1],
+                "owner_email": email.recipient(owners[k.kpi_id][1]),
             }
             for k in red
             if k.kpi_id not in latest
@@ -420,8 +450,14 @@ def record_approval(
     controller = conn.execute(
         "SELECT controller_email FROM clients WHERE id = %s", (client_id,)
     ).fetchone()["controller_email"]
-    if approver.strip().lower() != controller.lower():
+    # TODO(signed approval tokens): REMOVE this whole approver-by-address check.
+    # It trusts an address the caller sends, so it is not real identity. When
+    # approvals come only through signed, single-use links, delete it and keep
+    # the test that proves approving by address no longer works.
+    # Interim: accept the Controller's address, or its test-mode alias.
+    if approver.strip().lower() not in {controller.lower(), email.recipient(controller).lower()}:
         raise Forbidden("only the client's Controller can approve or reject the packet")
+    approver = controller  # record the real address, not an alias
     if _approved(conn, run):
         raise Conflict("this packet version is already approved")
     row = conn.execute(
@@ -446,4 +482,14 @@ def mark_sent(conn: psycopg.Connection, client_id: str, run_id: int) -> dict:
 def needs_attention(conn: psycopg.Connection, client_id: str, run_id: int, reason: str) -> dict:
     run = get_run(conn, client_id, run_id, lock=True)
     move(conn, run, "needs_attention", note=reason)
-    return {"run_id": run_id, "client_id": client_id, "state": run["state"]}
+    c = conn.execute(
+        "SELECT name, controller_email FROM clients WHERE id = %s", (client_id,)
+    ).fetchone()
+    week = packet.week_label(run["week_start"])
+    alert = email.compose(
+        [c["controller_email"]],
+        f"Needs attention: {c['name']}, week of {week}",
+        f"The weekly KPI run for {c['name']} (week of {week}, run {run_id}) needs attention."
+        f"\n\nReason: {reason}",
+    )
+    return {"run_id": run_id, "client_id": client_id, "state": run["state"], "alert_email": alert}

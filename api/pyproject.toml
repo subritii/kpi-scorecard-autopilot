@@ -4,16 +4,17 @@ version = "0.1.0"
 description = "KPI math, driver analysis, faithfulness check, and eval runner for KPI Scorecard Autopilot"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.29",
-    "psycopg[binary]>=3.1",
-    "httpx>=0.27",  # HTTP client for the Ollama and Azure OpenAI providers
+    # Pinned to the tested versions; requirements.lock pins everything below them.
+    "fastapi==0.159.1",
+    "uvicorn[standard]==0.54.0",
+    "psycopg[binary]==3.3.6",
+    "httpx==0.28.1",  # HTTP client for the Ollama and Azure OpenAI providers
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.4",
+    "pytest==9.1.1",
+    "ruff==0.17.1",
 ]
 
 [build-system]

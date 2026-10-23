@@ -18,7 +18,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app import faithfulness, retrieval, runs, service
+from app import email, faithfulness, retrieval, runs, service
 from app.auth import check_configured_key, require_api_key
 from app.db import client_connection
 from app.llm import get_provider
@@ -27,8 +27,9 @@ from app.llm.base import LLMConfigError, LLMError, LLMProvider
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Refuse to start without a strong API_KEY, rather than failing per request.
+    # Refuse to start on bad settings, rather than failing per request.
     check_configured_key()
+    email.check_override()
     yield
 
 
@@ -69,6 +70,7 @@ def run_forbidden(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=403, content={"detail": str(exc)})
 
 
+@app.exception_handler(email.EmailConfigError)
 @app.exception_handler(retrieval.RetrievalConfigError)
 def retrieval_config_error(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": str(exc)})

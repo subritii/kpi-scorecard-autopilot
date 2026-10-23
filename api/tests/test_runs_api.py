@@ -411,3 +411,102 @@ def test_bad_decision_is_422(db):
         post(f"/runs/{run['run_id']}/approval", approver=CONTROLLER, decision="maybe").status_code
         == 422
     )
+
+
+# --- TEST_EMAIL_OVERRIDE ------------------------------------------------------------------
+
+ME = "me@gmail.com"
+BANNER = "Test mode: originally addressed to "
+
+
+def recipient_fields(obj, key=None):
+    """Every address in a field n8n could send to: `to` lists and *_email(s) fields."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from recipient_fields(v, k)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from recipient_fields(v, key)
+    elif isinstance(obj, str) and key and (key == "to" or key.endswith(("_email", "_emails"))):
+        yield obj
+
+
+def get_run(run_id, client_id="brightline"):
+    return client.get(f"/runs/{run_id}", params={"client_id": client_id}).json()
+
+
+def test_no_real_address_reaches_a_recipient_field_when_overridden(db, monkeypatch):
+    monkeypatch.setenv("TEST_EMAIL_OVERRIDE", ME)
+    monkeypatch.delenv("EMAIL_MODE")
+    run = start()
+    rid = run["run_id"]
+    responses = [run, post(f"/runs/{rid}/observations").json(), get_run(rid)]
+    responses.append(post(f"/runs/{rid}/packet").json())
+    post(f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved")
+    responses.append(get_run(rid))
+    other = start("2026-08-10")  # a second run, for the alert email
+    responses.append(post(f"/runs/{other['run_id']}/needs-attention", reason="test").json())
+
+    found = [a for r in responses for a in recipient_fields(r)]
+    assert len(found) >= 8  # owner, controller, leadership, reminders, alert
+    assert all(a.startswith("me+") and a.endswith("@gmail.com") for a in found), found
+
+
+def test_owner_email_is_overridden_with_a_banner(db, monkeypatch):
+    monkeypatch.setenv("TEST_EMAIL_OVERRIDE", ME)
+    monkeypatch.delenv("EMAIL_MODE")
+    run = start()
+    [msg] = post(f"/runs/{run['run_id']}/observations").json()["messages"]
+    mail = msg["email"]
+    assert mail["to"] == ["me+avery.chen.brightline@gmail.com"]
+    assert mail["subject"] == "Week of Aug 3, 2026: AR Over 60 Days needs your input"
+    assert mail["body"].startswith(BANNER + "avery.chen@brightline.example\n\n")
+    assert mail["body"].endswith(msg["message"])
+
+
+def test_packet_email_only_after_approval_and_to_leadership(db, monkeypatch):
+    monkeypatch.setenv("TEST_EMAIL_OVERRIDE", ME)
+    monkeypatch.delenv("EMAIL_MODE")
+    run = to_awaiting_approval()
+    rid = run["run_id"]
+    assert get_run(rid)["packet_email"] is None  # nothing to send before approval
+    post(f"/runs/{rid}/approval", approver=CONTROLLER, decision="approved")
+    got = get_run(rid)
+    mail = got["packet_email"]
+    assert mail["to"] == ["me+ceo.brightline@gmail.com", "me+coo.brightline@gmail.com"]
+    assert mail["subject"] == "KPI packet: Brightline Services, week of Aug 3, 2026"
+    assert mail["body"] == (
+        BANNER + "ceo@brightline.example, coo@brightline.example\n\n" + got["packet_md"]
+    )
+
+
+def test_reminder_emails_for_unanswered_kpis(db, monkeypatch):
+    monkeypatch.setenv("TEST_EMAIL_OVERRIDE", ME)
+    monkeypatch.delenv("EMAIL_MODE")
+    run = start()
+    [reminder] = get_run(run["run_id"])["reminder_emails"]
+    assert reminder["to"] == ["me+avery.chen.brightline@gmail.com"]
+    assert "AR Over 60 Days" in reminder["subject"]
+    assert reminder["body"].startswith(BANNER)
+    post(f"/runs/{run['run_id']}/responses", kpi_id=ar_kpi(run)["kpi_id"], **REPLY)
+    assert get_run(run["run_id"])["reminder_emails"] == []  # answered: no reminder
+
+
+def test_alert_email_on_needs_attention(db, monkeypatch):
+    monkeypatch.setenv("TEST_EMAIL_OVERRIDE", ME)
+    monkeypatch.delenv("EMAIL_MODE")
+    run = start()
+    body = post(f"/runs/{run['run_id']}/needs-attention", reason="WF2: Gmail node failed").json()
+    alert = body["alert_email"]
+    assert alert["to"] == ["me+controller.ledgerline-cfo@gmail.com"]
+    assert "WF2: Gmail node failed" in alert["body"]
+    assert alert["body"].startswith(BANNER + CONTROLLER)
+
+
+def test_without_override_emails_go_to_the_real_addresses(db, monkeypatch):
+    monkeypatch.delenv("TEST_EMAIL_OVERRIDE", raising=False)
+    monkeypatch.setenv("EMAIL_MODE", "live")
+    run = start()
+    [msg] = post(f"/runs/{run['run_id']}/observations").json()["messages"]
+    assert msg["email"]["to"] == ["avery.chen@brightline.example"]
+    assert not msg["email"]["body"].startswith(BANNER)

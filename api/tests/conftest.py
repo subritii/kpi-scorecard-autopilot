@@ -9,6 +9,10 @@ from app.config import load_env
 load_env()
 # Every endpoint needs an API key; tests use the .env one, or this fallback.
 os.environ.setdefault("API_KEY", "test-api-key-" + "0" * 32)
+# Independent of your .env: tests never send email, so they run in live mode
+# and check the real (.example) addresses; tests of test mode switch it on.
+os.environ.pop("TEST_EMAIL_OVERRIDE", None)
+os.environ["EMAIL_MODE"] = "live"
 
 
 def pytest_addoption(parser):
@@ -25,7 +29,9 @@ def pytest_collection_modifyitems(config, items):
         return
     skip = pytest.mark.skip(reason="uses real Ollama; run with: pytest --live")
     for item in items:
-        if "live" in item.keywords:
+        # The marker, not item.keywords: keywords also contain parametrize ids,
+        # so a test case with id "live" would be skipped by mistake.
+        if item.get_closest_marker("live"):
             item.add_marker(skip)
 
 

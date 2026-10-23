@@ -21,11 +21,15 @@ any open state -> needs_attention -> asking | assembling
   nodes, set `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` or type the URL directly.
 - **Every request carries `client_id`.** Runs are client-scoped (row-level
   security); a `run_id` with the wrong `client_id` returns `404`.
-- **Synthetic recipients don't exist.** Owner and leadership emails use the
-  reserved `.example` domain and can't receive mail. While testing, add a
-  **Set** node before each Gmail node that replaces the recipient with your own
-  test inbox (keep the original in the subject line so you can tell who it was
-  for).
+- **The API writes every email; n8n only sends them.** Endpoints return ready
+  emails as `{to, subject, body}`; Gmail nodes map those three fields and add
+  nothing of their own.
+- **Test mode for email.** The synthetic recipients use the reserved `.example`
+  domain and can't receive mail. Set `TEST_EMAIL_OVERRIDE=you@gmail.com` in
+  `.env` and restart the API: every email then goes to a plus-alias of your inbox
+  (`ceo@brightline.example` -> `you+ceo.brightline@gmail.com`) and starts with
+  "Test mode: originally addressed to ...". Every recipient field the API
+  returns is rewritten too, so no workflow can reach a real address by mistake.
 - **Approval links.** Gmail "Send and Wait" puts a link to n8n in the email.
   Set `WEBHOOK_URL=http://localhost:5678/` on the n8n container so the link
   works from your browser.
@@ -59,13 +63,13 @@ No database, LLM or Azure credentials go into n8n; the API key is its only way i
 | Method and path | Body | Returns |
 |---|---|---|
 | `POST /runs/start` | `client_id, week_start` | `run_id, state, created, red_kpis[]` (each with `owner_name`, `owner_email`). Safe to call twice; never resets a run. |
-| `GET /runs/{id}?client_id=` | | `state, packet_md, approved, controller_email, leadership_emails, red_kpis[] (answered), unanswered_kpis[]` |
-| `POST /runs/{id}/observations` | `client_id` | `messages[]`: `kpi_id, owner_name, owner_email, message, source (llm / llm_retry / template)` |
+| `GET /runs/{id}?client_id=` | | `state, packet_md, approved, controller_email, leadership_emails, red_kpis[] (answered), unanswered_kpis[]`, plus emails: `packet_email` (to leadership; only once approved, else `null`) and `reminder_emails[]` (one per unanswered KPI) |
+| `POST /runs/{id}/observations` | `client_id` | `messages[]`: `kpi_id, owner_name, owner_email, message, email {to, subject, body}, source (llm / llm_retry / template)` |
 | `POST /runs/{id}/responses` | `client_id, kpi_id, what_changed, why, owner_of_fix, actions` | `response_id` |
 | `POST /runs/{id}/packet` | `client_id` | `state, packet_md, faithfulness {passed, problems[]}, unanswered_kpis[]` |
 | `POST /runs/{id}/approval` | `client_id, approver, decision (approved / rejected), edits` | `approval_id, state`. `approver` must be the client's Controller (`403` otherwise). |
 | `POST /runs/{id}/mark-sent` | `client_id` | `state: sent`. `409` unless the current packet version is approved. |
-| `POST /runs/{id}/needs-attention` | `client_id, reason` | `state: needs_attention` |
+| `POST /runs/{id}/needs-attention` | `client_id, reason` | `state: needs_attention`, `alert_email` (to the Controller) |
 
 `409` always means "the run's state doesn't allow this step"; the `detail` says why.
 `401` means the `X-API-Key` header is missing or wrong.

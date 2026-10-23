@@ -79,6 +79,34 @@ without an `approved` approval (enforced in the database).
   unsure, they flag), which can mean false alarms on unusual phrasing.
 - **The retrieval threshold is tuned on a small synthetic set** (see above).
 
+## Email safety
+
+The API composes every email and n8n only sends them, so one setting controls
+where mail goes. It is fail safe: the API **refuses to start** until a mode is
+chosen explicitly.
+
+| `.env` | Result |
+|---|---|
+| `TEST_EMAIL_OVERRIDE=you@gmail.com` | **Test mode.** Every recipient becomes a plus-alias of your inbox (`you+ceo.brightline@gmail.com`), and each email starts with "Test mode: originally addressed to ...". |
+| `EMAIL_MODE=live` (no override) | **Live mode.** Real addresses. Must be set on purpose. |
+| neither, or both | The API won't start. An empty override never means "send for real". |
+
+## Production hardening not done yet
+
+Fine for a localhost prototype; needed before running this anywhere real:
+
+- **Rate limiting** on failed API-key and token attempts.
+- **Request logging** with request IDs (and no secrets or client data in logs).
+- **Database connection pooling** (each request opens its own connection today).
+- **API key rotation** (accepting two keys during a rotation window).
+- **TLS / a reverse proxy**, if anything is exposed beyond localhost.
+- **Real identity for approvers** (single sign-on): approval links prove access to
+  the Controller's inbox, not who clicked.
+
+Already in place: API key on every route, startup checks, ports bound to
+127.0.0.1, pinned dependencies (`api/requirements.lock`), a non-root API
+container, row-level security, and the approval-before-send database trigger.
+
 ## Status
 
 - [x] Phase 0 Setup
