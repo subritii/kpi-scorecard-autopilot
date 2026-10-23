@@ -1,0 +1,194 @@
+{
+  "name": "QBO AR pull",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9c7b7641-3527-45b1-a9d4-8d4d4415c121",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "=https://sandbox-quickbooks.api.intuit.com/v3/company/{{ $env.QBO_REALM_ID }}/reports/AgedReceivables",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "report_date",
+              "value": "={{ $json.report_date }}"
+            },
+            {
+              "name": "minorversion",
+              "value": "75"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "id": "1a676a0b-8db3-4702-aee5-f39d4cfe2993",
+      "name": "Get AR aging",
+      "credentials": {
+        "quickBooksOAuth2Api": {
+          "id": "eJnesjz8ec5DD3da",
+          "name": "QuickBooks Online account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/ingest/qbo-ar-aging",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ client_id: \"sandbox_co\", week_start: $('Week').item.json.week_start, realm_id: $env.QBO_REALM_ID, report: $json }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        0
+      ],
+      "id": "e769d658-5ffb-4c2c-8e44-4e06e77f1a36",
+      "name": "Ingest",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/runs/start",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "sandbox_co"
+            },
+            {
+              "name": "=week_start",
+              "value": "={{ $('Week').item.json.week_start }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        0
+      ],
+      "id": "9371425a-5899-4dc0-9ccf-7c17eff87d31",
+      "name": "Start Run",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ankSztj2nGdVYgSk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst daysSinceMonday = (now.getDay() + 6) % 7;\nconst monday = new Date(now);\nmonday.setDate(now.getDate() - daysSinceMonday);\nconst sunday = new Date(monday);\nsunday.setDate(monday.getDate() + 6);\nconst fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, \"0\")}-${String(d.getDate()).padStart(2, \"0\")}`;\nreturn [{ json: { week_start: fmt(monday), report_date: fmt(sunday) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "40db00d4-e908-4df7-bd82-ba7d5782d134",
+      "name": "Week"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get AR aging": {
+      "main": [
+        [
+          {
+            "node": "Ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest": {
+      "main": [
+        [
+          {
+            "node": "Start Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Week": {
+      "main": [
+        [
+          {
+            "node": "Get AR aging",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b4fe53aa-02e6-4887-98f1-8ab0c403ca64",
+  "meta": {
+    "instanceId": "c2ca7174a521a4c149b699ccdf6601469a40d90bc75e1e3f4369c9e0dbfcf1e1"
+  },
+  "nodeGroups": [],
+  "id": "cEzGp5L9CF0qj5sb",
+  "tags": []
+}

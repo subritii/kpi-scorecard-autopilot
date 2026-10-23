@@ -377,7 +377,8 @@ def test_mark_sent_on_a_sent_run_is_success(db):
     mark_sent(rid)
     again = mark_sent(rid)  # n8n retried mark-sent
     assert again.status_code == 200
-    assert again.json() == {
+    body = again.json()
+    assert {k: body[k] for k in ("run_id", "client_id", "state", "already_sent")} == {
         "run_id": rid,
         "client_id": "brightline",
         "state": "sent",
@@ -714,3 +715,48 @@ def test_resolve_claim_of_another_client_is_404(db):
         note="Checked.",  # valid input, so the 404 comes from isolation, not validation
     )
     assert resp.status_code == 404
+
+
+# --- ClickUp task on send --------------------------------------------------------------------
+
+
+def test_mark_sent_returns_a_clickup_task_with_approver_and_times(db):
+    rid = approved_run()
+    claim(rid)
+    body = mark_sent(rid).json()
+    task = body["clickup_task"]
+    assert task["name"] == "Brightline Services: week of Aug 3, 2026 packet sent"
+    lines = task["description"].splitlines()
+    assert "Approved by: controller@ledgerline-cfo.example" in lines
+    assert any(line.startswith("Approved at: ") and line.endswith(" UTC") for line in lines)
+    assert any(line.startswith("Sent at: ") and line.endswith(" UTC") for line in lines)
+    assert "Sent to: ceo@brightline.example, coo@brightline.example" in lines
+    assert "Packet version: 1" in lines
+    assert f"Run: {rid}" in lines
+
+
+def test_retried_mark_sent_returns_the_same_clickup_task(db):
+    # n8n creates the task only when already_sent is false, so a retry adds no
+    # duplicate; the task it gets back is identical anyway (original times).
+    rid = approved_run()
+    claim(rid)
+    first = mark_sent(rid).json()
+    retry = mark_sent(rid).json()
+    assert (first["already_sent"], retry["already_sent"]) == (False, True)
+    assert retry["clickup_task"] == first["clickup_task"]
+
+
+def test_clickup_task_names_the_recipients_actually_used_in_test_mode(db, monkeypatch):
+    monkeypatch.setenv("TEST_EMAIL_OVERRIDE", ME)
+    monkeypatch.delenv("EMAIL_MODE")
+    rid = approved_run()
+    claim(rid)
+    description = mark_sent(rid).json()["clickup_task"]["description"]
+    assert "Sent to: me+ceo.brightline@gmail.com, me+coo.brightline@gmail.com" in description
+    assert "test mode" in description.lower()
+
+
+def test_no_clickup_task_when_mark_sent_is_refused(db):
+    rid = approved_run()  # not claimed
+    resp = mark_sent(rid)
+    assert resp.status_code == 409 and "clickup_task" not in resp.json()

@@ -20,8 +20,14 @@ needs_attention -> sent | awaiting_approval   (only by resolving a stuck send cl
 
 - **API base URL.** Inside Docker Compose, n8n reaches the API at
   `http://api:8000`, set as `KPI_API_URL` on the n8n container. HTTP nodes use
-  `{{ $env.KPI_API_URL }}/runs/start`. If your n8n version blocks `$env` in
-  nodes, set `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` or type the URL directly.
+  `{{ $env.KPI_API_URL }}/runs/start`, or type `http://api:8000` directly.
+- **`$env` in nodes is enabled.** n8n blocks it by default ("access to env
+  vars denied"), so `docker-compose.yml` sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`
+  for n8n. Workflows read `$env.QBO_REALM_ID`, `$env.SEND_POLL_INTERVAL_MINUTES`
+  and `$env.KPI_API_URL`. Only the variables in n8n's compose `environment` exist
+  in that container (no API key or database password), but any node, including
+  a Code node, can read all of them, `N8N_ENCRYPTION_KEY` included: fine on
+  localhost, worth revisiting before sharing the n8n instance.
 - **Every API call needs the API key.** Create one n8n *Header Auth*
   credential (name `X-API-Key`, value = `API_KEY` from `.env`) and select it
   in every HTTP Request node (*Authentication: Generic > Header Auth*). A
@@ -63,7 +69,8 @@ needs_attention -> sent | awaiting_approval   (only by resolving a stuck send cl
 |---|---|---|
 | **Header Auth** (`X-API-Key`) | every HTTP Request node | Name `X-API-Key`, value `API_KEY` from `.env`. |
 | **SMTP** (Gmail app password) | every Send Email node | On the Google account you send from: turn on 2-Step Verification, then create an app password (Google Account > Security > App passwords). In n8n: host `smtp.gmail.com`, port `465`, SSL/TLS on, user = that Gmail address, password = the 16-character app password. Use a test account, not your main one. |
-| ClickUp API (Phase 6) | WF1, WF4 | Personal API token. Not needed yet. |
+| **ClickUp API** | WF4b (task after a send) | Your existing ClickUp credential (personal API token). |
+| **Header Auth** for the webhook (optional) | WF4b's Webhook trigger | A second Header Auth credential, e.g. name `X-Webhook-Token`, value a long random string (`openssl rand -hex 32`). Separate from the API key. |
 | QuickBooks Online OAuth2 (Phase 6) | WF1 | Intuit developer sandbox app. Not needed yet. |
 
 No database, LLM or Azure credentials go into n8n; the API key is its only way in.
@@ -80,7 +87,7 @@ No database, LLM or Azure credentials go into n8n; the API key is its only way i
 | `POST /runs/{id}/packet` | `client_id` | `state`, `packet_md`, `faithfulness {passed, problems[]}`, `unanswered_kpis[]`, and `approval_email` (to the Controller, with the approval link) when the packet passed. |
 | `POST /runs/{id}/approval-email` | `client_id` | A fresh `approval_email`, e.g. if the first was lost or expired. |
 | `POST /runs/{id}/claim-send` | `client_id, idempotency_key` | `claimed, repeated, packet_email`. Call **before** emailing. Same key again returns the same claim; another key gets `409`, as does an unapproved or already-sent run. |
-| `POST /runs/{id}/mark-sent` | `client_id, idempotency_key` | `state: sent, already_sent`. Needs the claim's key. An already-sent run returns `200` with `already_sent: true`, so a retry is safe. |
+| `POST /runs/{id}/mark-sent` | `client_id, idempotency_key` | `state: sent, already_sent`, and `clickup_task {name, description}` (who approved, when, when sent, recipients, version, run). Needs the claim's key. An already-sent run returns `200` with `already_sent: true` and the same task, so a retry is safe; create the task only when `already_sent` is false. |
 | `POST /runs/{id}/resolve-claim` | `client_id, resolution (sent / not_sent), resolved_by, note` | Settles a stuck claim; recorded with who and when. |
 | `POST /runs/{id}/needs-attention` | `client_id, reason` | `state: needs_attention`, `alert_email` (to the Controller). |
 | `POST /ingest/qbo-ar-aging` | `client_id, week_start, realm_id, report` | Loads a QuickBooks AgedReceivables report (sent raw, exactly as QuickBooks returned it) as that week's AR over 60 facts. `403` unless `realm_id` is the client's own QuickBooks company (only Sandbox Co has one); `422` if the report doesn't check out (nothing is written). |
@@ -172,11 +179,55 @@ sends a new approval link.
 | 5 | HTTP Request: *Claim Send* | `POST /runs/{run_id}/claim-send {client_id, idempotency_key: "wf4b-exec-{{ $execution.id }}"}`. The prefix is needed because the API requires 8+ characters and a bare execution id is shorter; it also says where the claim came from. On `409`, stop: another execution owns the send, or it already went out. |
 | 6 | Send Email (SMTP): *Email leadership* | **Both**: *To* `{{ $json.packet_email.to.join(', ') }}`, *Subject*, *Text* (`body`), *HTML* (`html`). **Retry On Fail off**, attribution off. |
 | 7 | HTTP Request: *Mark Sent* | `POST /runs/{run_id}/mark-sent {client_id, idempotency_key: "wf4b-exec-{{ $execution.id }}"}` (the same key as node 5), only after node 6 succeeds. Retry is safe (`already_sent: true`). |
+| 8 | IF: *Newly sent?* | `{{ $json.already_sent }}` is false (boolean). A retried mark-sent returns `true`, so no duplicate ClickUp task. |
+| 9 | ClickUp: *Create task* | True branch. See "Adding the ClickUp task" below. |
 
 The key must be identical in nodes 5 and 7, character for character: the API
 compares it exactly, so a stray space in one of them makes `mark-sent` return
 `409`. (The current export has two leading spaces in both, so they match; it's
 safer to remove them from both.)
+
+### Adding the ClickUp task (after Mark Sent)
+
+The API writes the task, as it writes emails: `mark-sent` returns
+`clickup_task {name, description}`, for example *"Brightline Services: week of
+Aug 3, 2026 packet sent"*, with who approved it and when in the description.
+
+1. After *Mark Sent*, add an **IF** node, *Newly sent?*: condition **Boolean** >
+   *is false*, value `{{ $json.already_sent }}`.
+2. On its **true** output, add a **ClickUp** node:
+   - *Credential*: your ClickUp API credential.
+   - *Resource*: **Task**, *Operation*: **Create**.
+   - *Team* (workspace): yours. *Space*: **Client Work**. If "Weekly Packets" is
+     directly in the Space, turn on *Folderless List*; otherwise pick its
+     *Folder*. *List*: **Weekly Packets**.
+   - *Name*: `{{ $json.clickup_task.name }}`.
+   - *Additional Fields* > *Content*: `{{ $json.clickup_task.description }}`.
+   - *Settings*: **Retry On Fail off** (a retry after a timeout could create a
+     second task).
+3. Run WF4b once on an approved packet and check the task in *Weekly Packets*.
+
+If creating the task fails, the packet is still sent and marked sent (the task
+is a record, not part of the send). Create it by hand from the description in
+that execution's *Mark Sent* output, and later WF6 can alert on it.
+
+### Optional: start WF4b from a URL (Webhook trigger)
+
+1. Add a **Webhook** node next to the Manual Trigger, connected to the same
+   *Clients* node.
+2. *HTTP Method*: **POST**. *Path*: `send-approved`.
+3. *Authentication*: **Header Auth**, with the webhook Header Auth credential
+   (`X-Webhook-Token`). Without it, anyone who can reach n8n could trigger sends.
+4. *Respond*: **Immediately** (the caller just starts it).
+5. Save and **activate** the workflow. The production URL is
+   `http://localhost:5678/webhook/send-approved` (n8n is bound to localhost);
+   while editing, the *Test URL* (`/webhook-test/...`) works for one call after
+   *Listen for test event*.
+6. Trigger it:
+   `curl -X POST -H "X-Webhook-Token: <value>" http://localhost:5678/webhook/send-approved`
+
+Calling it more often is safe: it only sends approved, unclaimed packets, and
+the claim stops a second send.
 
 Why the claim: if this runs twice for the same run (an overlapping poll, a
 retry, someone clicking *Retry*), the second execution has a different id, so

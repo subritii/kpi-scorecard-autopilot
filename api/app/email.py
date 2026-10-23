@@ -47,6 +47,11 @@ def _override() -> str | None:
     return value
 
 
+def test_mode() -> bool:
+    """True when emails go to the test inbox instead of the real recipients."""
+    return _override() is not None
+
+
 def check_override() -> None:
     """Raise unless the email settings are valid (run at startup)."""
     _override()

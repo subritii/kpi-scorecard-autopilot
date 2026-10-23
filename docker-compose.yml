@@ -55,6 +55,10 @@ services:
       SEND_POLL_INTERVAL_MINUTES: ${SEND_POLL_INTERVAL_MINUTES}
       # The QuickBooks sandbox company the QBO pull reads from (see docs/n8n-setup.md).
       QBO_REALM_ID: ${QBO_REALM_ID}
+      # Lets workflow nodes read the variables above as {{ $env.NAME }} (n8n blocks
+      # this by default). Only the variables listed here exist in this container, so
+      # no API key or database password is exposed; N8N_ENCRYPTION_KEY is readable.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
     ports:
       - "127.0.0.1:5678:5678"
     volumes:

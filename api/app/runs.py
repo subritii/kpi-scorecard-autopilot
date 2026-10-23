@@ -19,7 +19,7 @@ sent (or needs_attention for a person to check): at most once, never twice.
 import html
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from datetime import date
+from datetime import UTC, date
 
 import psycopg
 
@@ -493,11 +493,60 @@ def claim_send(conn: psycopg.Connection, client_id: str, run_id: int, key: str) 
     }
 
 
+def _utc(ts) -> str:
+    return ts.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _clickup_task(conn: psycopg.Connection, run: dict) -> dict:
+    """The ClickUp task n8n creates once the packet is sent: {name, description}.
+
+    Who approved is the approval recorded for this packet version (always the
+    client's Controller, via the signed link); times come from the database.
+    """
+    c = conn.execute(
+        "SELECT name, leadership_emails FROM clients WHERE id = %s", (run["client_id"],)
+    ).fetchone()
+    approval = conn.execute(
+        "SELECT a.approver, a.decided_at FROM approvals a JOIN weekly_runs r ON r.id = a.run_id"
+        " WHERE a.run_id = %s AND r.client_id = %s AND a.decision = 'approved'"
+        " AND a.packet_version = %s ORDER BY a.id DESC LIMIT 1",
+        (run["id"], run["client_id"], run["packet_version"]),
+    ).fetchone()
+    sent_at = conn.execute(
+        "SELECT e.created_at FROM run_events e JOIN weekly_runs r ON r.id = e.run_id"
+        " WHERE e.run_id = %s AND r.client_id = %s AND e.to_state = 'sent' ORDER BY e.id LIMIT 1",
+        (run["id"], run["client_id"]),
+    ).fetchone()["created_at"]
+    week = packet.week_label(run["week_start"])
+    lines = [
+        f"The weekly KPI packet for {c['name']} (week of {week}) was sent to leadership.",
+        "",
+        f"Approved by: {approval['approver']}",
+        f"Approved at: {_utc(approval['decided_at'])}",
+        f"Sent at: {_utc(sent_at)}",
+        f"Sent to: {', '.join(email.recipients(c['leadership_emails']))}",
+    ]
+    if email.test_mode():
+        lines.append(f"(Test mode: the real recipients were {', '.join(c['leadership_emails'])})")
+    lines += [f"Packet version: {run['packet_version']}", f"Run: {run['id']}"]
+    return {"name": f"{c['name']}: week of {week} packet sent", "description": "\n".join(lines)}
+
+
 def mark_sent(conn: psycopg.Connection, client_id: str, run_id: int, key: str) -> dict:
-    """Record that the packet went out. Safe to retry: an already-sent run is a success."""
+    """Record that the packet went out. Safe to retry: an already-sent run is a success.
+
+    Returns the ClickUp task to create. On a retry (already_sent) it is the same
+    task; n8n creates it only when already_sent is false, so retries add none.
+    """
     run = get_run(conn, client_id, run_id, lock=True)
     if run["state"] == "sent":
-        return {"run_id": run_id, "client_id": client_id, "state": "sent", "already_sent": True}
+        return {
+            "run_id": run_id,
+            "client_id": client_id,
+            "state": "sent",
+            "already_sent": True,
+            "clickup_task": _clickup_task(conn, run),
+        }
     _require_state(run, {"awaiting_approval"}, "mark the packet sent")
     if not _approved(conn, run):
         raise Conflict("the current packet version has no approved approval")
@@ -508,7 +557,13 @@ def mark_sent(conn: psycopg.Connection, client_id: str, run_id: int, key: str) -
     if run["send_claim_key"] != key or run["send_claim_version"] != run["packet_version"]:
         raise Conflict("the send was claimed by another execution")
     move(conn, run, "sent")
-    return {"run_id": run_id, "client_id": client_id, "state": "sent", "already_sent": False}
+    return {
+        "run_id": run_id,
+        "client_id": client_id,
+        "state": "sent",
+        "already_sent": False,
+        "clickup_task": _clickup_task(conn, run),
+    }
 
 
 def needs_attention(conn: psycopg.Connection, client_id: str, run_id: int, reason: str) -> dict:
