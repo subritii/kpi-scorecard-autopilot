@@ -24,7 +24,7 @@ DATA = ROOT / "data" / "demo" / "example_week.json"
 TEMPLATE = ROOT / "docs" / "template.html"
 OUT = ROOT / "docs" / "index.html"
 
-VIDEO_URL = "#"  # VIDEO_URL: the 2-minute demo video
+VIDEO_URL = "https://youtu.be/Q7kpmZMEA7s"  # VIDEO_URL: the 5-minute demo video
 GITHUB_URL = "https://github.com/subritii/kpi-scorecard-autopilot"  # GITHUB_URL: the repository
 LINKEDIN_URL = "#"  # LINKEDIN_URL: your profile
 

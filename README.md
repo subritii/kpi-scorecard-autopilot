@@ -4,8 +4,8 @@
 assembled automatically, explained by the people responsible, and sent only
 after a human approves it.**
 
-**Demo video (2 min):** _coming soon_ <!-- replace with the video link -->  
-**Project page:** _coming soon_ <!-- replace with the GitHub Pages link (docs/index.html) -->
+**Demo video (5 min):** https://youtu.be/Q7kpmZMEA7s  
+**Project page:** https://subritii.github.io/kpi-scorecard-autopilot/
 
 Every week, a fractional CFO firm has to tell each client's leadership how the
 business did: which numbers are off target, why, and what is being done about
